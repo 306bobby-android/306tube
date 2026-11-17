@@ -78,6 +78,8 @@ data class Settings(
     val syncHistory: Boolean = true,
     val visitorData: String? = null,
     val castSenderId: String? = null,
+    val castScreenId: String? = null,
+    val castReceiverId: String? = null,
 )
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore("settings")
@@ -115,6 +117,8 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val syncHistory = booleanPreferencesKey("sync_history")
         val visitorData = stringPreferencesKey("visitor_data")
         val castSenderId = stringPreferencesKey("cast_sender_id")
+        val castScreenId = stringPreferencesKey("cast_screen_id")
+        val castReceiverId = stringPreferencesKey("cast_receiver_id")
     }
 
     val flow: Flow<Settings> = store.data.map { decode(it) }
@@ -152,6 +156,8 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             syncHistory = p[Keys.syncHistory] ?: d.syncHistory,
             visitorData = p[Keys.visitorData],
             castSenderId = p[Keys.castSenderId],
+            castScreenId = p[Keys.castScreenId],
+            castReceiverId = p[Keys.castReceiverId],
         )
     }
 
@@ -192,6 +198,8 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             p[Keys.syncHistory] = s.syncHistory
             if (s.visitorData != null) p[Keys.visitorData] = s.visitorData else p.remove(Keys.visitorData)
             if (s.castSenderId != null) p[Keys.castSenderId] = s.castSenderId else p.remove(Keys.castSenderId)
+            if (s.castScreenId != null) p[Keys.castScreenId] = s.castScreenId else p.remove(Keys.castScreenId)
+            if (s.castReceiverId != null) p[Keys.castReceiverId] = s.castReceiverId else p.remove(Keys.castReceiverId)
         }
     }
 }

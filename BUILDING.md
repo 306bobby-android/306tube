@@ -71,7 +71,7 @@ Signing needs four repo secrets: `KEYSTORE_BASE64` (`base64 -w0 my-release.jks`)
 | `app` | UI (Compose), settings, Room database, downloads, accounts |
 | `innertube` | YouTube's internal API: client, parsers, models. Plain JVM. |
 | `player` | Media3 playback, stream resolving, PoToken and JS challenge solving |
-| `cast` | DIAL discovery and the YouTube Lounge protocol. Plain JVM. |
+| `cast` | DIAL discovery and the YouTube Lounge protocol, sender and (for TV) receiver. Plain JVM. |
 | `recommend` | On-device Home feed. Plain JVM. |
 
 Versions live in `gradle/libs.versions.toml`. The app version is in `app/build.gradle.kts`.

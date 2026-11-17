@@ -50,6 +50,7 @@ import tube.three06.app.data.ytdlp.YtDlp
 import tube.three06.app.ui.common.LocalGraph
 import tube.three06.app.ui.common.LocalIsTv
 import tube.three06.app.ui.common.LocalMessages
+import tube.three06.app.ui.common.describe
 import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.login.AccountsSheet
 
@@ -73,6 +74,7 @@ fun SettingsScreen() {
     val context = LocalContext.current
     val nav = LocalNavigator.current
     val scope = rememberCoroutineScope()
+    val messages = LocalMessages.current
     val settings by graph.settings.state.collectAsStateWithLifecycle()
     val signedIn by graph.session.credentials.collectAsStateWithLifecycle()
     val screens by graph.screenStore.observe().collectAsStateWithLifecycle(emptyList())
@@ -273,7 +275,44 @@ fun SettingsScreen() {
             }
 
             item { SettingsHeader("Cast") }
-            if (screens.isEmpty()) {
+            val receiver = graph.castReceiver
+            if (receiver != null) {
+                item {
+                    val linked by receiver.connected.collectAsStateWithLifecycle()
+                    var code by remember { mutableStateOf<String?>(null) }
+                    ListItem(
+                        headlineContent = { Text("Cast to this TV") },
+                        supportingContent = {
+                            Text(
+                                if (linked) {
+                                    "Shows up as \"${receiver.name}\" on phones on this network while 306Tube is open."
+                                } else {
+                                    "Not connected to YouTube's cast service. Check the network."
+                                },
+                            )
+                        },
+                    )
+                    ListItem(
+                        headlineContent = { Text(code?.chunked(3)?.joinToString(" ") ?: "Link with TV code") },
+                        supportingContent = {
+                            Text(
+                                if (code == null) {
+                                    "For phones on another network, or if this TV isn't listed"
+                                } else {
+                                    "Enter this under Link with TV code in YouTube or 306Tube on your phone"
+                                },
+                            )
+                        },
+                        modifier = Modifier.clickable {
+                            scope.launch {
+                                runCatching { receiver.pairingCode() }
+                                    .onSuccess { code = it }
+                                    .onFailure { messages("Couldn't get a code: ${it.describe()}") }
+                            }
+                        },
+                    )
+                }
+            } else if (screens.isEmpty()) {
                 item {
                     Text(
                         "No paired screens. Use the cast button to discover a TV or enter a TV code.",
@@ -283,7 +322,7 @@ fun SettingsScreen() {
                     )
                 }
             }
-            items(screens.size) { i ->
+            if (receiver == null) items(screens.size) { i ->
                 val s = screens[i]
                 ListItem(
                     headlineContent = { Text(s.name) },

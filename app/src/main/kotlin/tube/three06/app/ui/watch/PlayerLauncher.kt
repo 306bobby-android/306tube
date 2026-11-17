@@ -17,7 +17,10 @@ class PlayerLauncher(
     private val scope: CoroutineScope,
 ) : PlayAction {
 
-    override fun play(video: Video, queue: List<Video>, source: WatchEvent.Source) {
+    override fun play(video: Video, queue: List<Video>, source: WatchEvent.Source) = play(video, queue, source, null)
+
+    /** [startMs] overrides the resume position, for links and casts that name a start time. */
+    fun play(video: Video, queue: List<Video>, source: WatchEvent.Source, startMs: Long?) {
         scope.launch {
             val settings = graph.settings.current
             graph.playbackObserver.currentSource = source
@@ -26,8 +29,8 @@ class PlayerLauncher(
                 video.durationSeconds?.let { it * 1000 * percent / 100 }
             }
             val resume = local ?: remote
-            val start = if (resume != null && settings.resume == ResumeMode.ALWAYS) resume else 0L
-            graph.overlay.resumeOffer.value = resume?.takeIf { settings.resume == ResumeMode.ASK }
+            val start = startMs ?: if (resume != null && settings.resume == ResumeMode.ALWAYS) resume else 0L
+            graph.overlay.resumeOffer.value = resume?.takeIf { startMs == null && settings.resume == ResumeMode.ASK }
             applyQualityForNetwork()
             val index = queue.indexOfFirst { it.id == video.id }
             if (queue.size > 1 && index >= 0) {

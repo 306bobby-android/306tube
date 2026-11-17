@@ -13,6 +13,7 @@ import okhttp3.OkHttpClient
 import tube.three06.app.App
 import tube.three06.app.MainActivity
 import tube.three06.app.data.AccountRepository
+import tube.three06.app.data.CastReceiver
 import tube.three06.app.data.DeArrowRepository
 import tube.three06.app.data.DownloadRepository
 import tube.three06.app.data.HistoryRepository
@@ -124,12 +125,16 @@ class AppGraph private constructor(val context: Context) {
         }
     }
 
+    // A TV is the thing you cast to; phones keep the sender side only.
+    val castReceiver: CastReceiver? = if (isTv) CastReceiver(this) else null
+
     companion object {
         fun create(app: Application): AppGraph {
             val graph = AppGraph(app)
             // The stored session has to be in place before any screen issues its first request.
             runBlocking { graph.accounts.restore() }
             graph.playbackObserver.start()
+            graph.castReceiver?.start()
             graph.scope.launch { runCatching { YtDlp.ensureReady(app) } }
             return graph
         }

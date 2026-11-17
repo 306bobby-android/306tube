@@ -339,8 +339,7 @@ private fun DeepLinkHandler(
                                 Video(endpoint.videoId, "", ChannelRef(null, ""))
                             }
                             val queue = details?.playlistPanel?.videos?.takeIf { it.isNotEmpty() } ?: listOf(video)
-                            launcher.play(video, queue, WatchEvent.Source.EXTERNAL)
-                            endpoint.startSeconds?.let { graph.player.seekTo(it * 1000) }
+                            launcher.play(video, queue, WatchEvent.Source.EXTERNAL, endpoint.startSeconds?.let { it * 1000 })
                         }
                         is Endpoint.Browse ->
                             if (endpoint.browseId.startsWith("VL")) {
