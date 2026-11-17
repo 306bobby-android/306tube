@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!--LIB-->
+<script>var meriyah = lib.meriyah, astring = lib.astring;</script>
+<!--CORE-->
+<script>
+var players = {};
+
+function reply(id, obj) { Solver.onResult(id, JSON.stringify(obj)); }
+
+function prepare(id, playerId, url) {
+  if (players[playerId]) { reply(id, { type: "result" }); return; }
+  fetch(url)
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " for player"); return r.text(); })
+    .then(function (js) {
+      var out = jsc({ type: "player", player: js, requests: [], output_preprocessed: true });
+      if (out.type !== "result") throw new Error(out.error);
+      players[playerId] = out.preprocessed_player;
+      reply(id, { type: "result" });
+    })
+    .catch(function (e) { reply(id, { type: "error", error: String(e) }); });
+}
+
+function solve(id, playerId, requestsJson) {
+  var pre = players[playerId];
+  if (!pre) { reply(id, { type: "error", error: "player not prepared" }); return; }
+  try {
+    reply(id, jsc({ type: "preprocessed", preprocessed_player: pre, requests: JSON.parse(requestsJson) }));
+  } catch (e) {
+    reply(id, { type: "error", error: String(e) });
+  }
+}
+
+Solver.onReady();
+</script>
+</head>
+<body></body>
+</html>
