@@ -7,6 +7,7 @@ Newest first. The release workflow copies the section matching the tag into the 
 - Android TV: shows up on the TV home screen, same APK as the phone
 - TV layout with a side rail, 4-column feeds and a focus highlight for the remote
 - TV player opens fullscreen. Left/right seek 10 seconds, OK brings up the controls, Back returns to browsing with the video in the mini player.
+- TV player has like, dislike, subscribe and comments next to the quality button. Comments open in a panel beside the video, and pressing down past the seek bar brings up recommended videos over it.
 - Fixed blank thumbnails with Random frame thumbnails on. Frames now come from YouTube, and a thumbnail that fails to load falls back to the original.
 - Hide Shorts now also removes Shorts that show up as single videos in a feed, not just the Shorts shelves
 

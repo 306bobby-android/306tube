@@ -4,6 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -107,7 +111,7 @@ fun PlayerControls(
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier,
     chapters: List<Chapter> = emptyList(),
-    onBack: () -> Unit = onCollapse,
+    vm: WatchViewModel? = null,
 ) {
     var visible by remember { mutableStateOf(true) }
     var scrubMs by remember { mutableStateOf<Long?>(null) }
@@ -134,9 +138,15 @@ fun PlayerControls(
     var rootFocused by remember { mutableStateOf(false) }
     var keyPresses by remember { mutableIntStateOf(0) }
     val upNextShown = state.upNext != null
+    // Likes, comments and related live in the player on TV, which has no details page.
+    val tvVm = vm.takeIf { isTv }
+    var panel by remember { mutableStateOf(TvPanel.NONE) }
+    val panelFocus = remember { FocusRequester() }
+    var seekFocused by remember { mutableStateOf(false) }
+    val controlsShown = visible && panel == TvPanel.NONE
 
-    LaunchedEffect(visible, state.isPlaying, menu, keyPresses) {
-        if (visible && state.isPlaying && menu == Menu.NONE) {
+    LaunchedEffect(visible, state.isPlaying, menu, keyPresses, panel) {
+        if (visible && state.isPlaying && menu == Menu.NONE && panel == TvPanel.NONE) {
             delay(if (isTv) 5000 else 3500)
             visible = false
         }
@@ -146,9 +156,9 @@ fun PlayerControls(
         LaunchedEffect(Unit) { runCatching { playFocus.requestFocus() } }
         // Hiding the controls or the up-next card removes the focused button; park focus on the
         // root so keys keep arriving. Outside fullscreen, don't pull focus out of the details pane.
-        LaunchedEffect(visible, upNextShown) {
+        LaunchedEffect(controlsShown, upNextShown, panel) {
             if (upNextShown || !(fullscreen || hasFocus)) return@LaunchedEffect
-            runCatching { (if (visible) playFocus else rootFocus).requestFocus() }
+            runCatching { (if (controlsShown) playFocus else rootFocus).requestFocus() }
         }
         BackHandler(enabled = fullscreen && visible) { visible = false }
     }
@@ -169,6 +179,23 @@ fun PlayerControls(
             Key.MediaNext -> controller.next()
             Key.MediaPrevious -> controller.previous()
             else -> {
+                if (panel != TvPanel.NONE) {
+                    val leaving = (panel == TvPanel.RELATED && key == Key.DirectionUp) ||
+                        (panel == TvPanel.COMMENTS && key == Key.DirectionLeft)
+                    if (leaving) {
+                        panel = TvPanel.NONE
+                        visible = true
+                        return true
+                    }
+                    // Root only holds focus while the panel is still loading its content.
+                    if (!rootFocused) return false
+                    runCatching { panelFocus.requestFocus() }
+                    return true
+                }
+                if (tvVm != null && visible && seekFocused && key == Key.DirectionDown) {
+                    panel = TvPanel.RELATED
+                    return true
+                }
                 // Only the bare player takes D-pad keys; a focused control handles its own.
                 if (!rootFocused) return false
                 when (key) {
@@ -200,7 +227,14 @@ fun PlayerControls(
                 if (event.key == Key.Back) {
                     // Left to the system, the first Back only clears focus.
                     if (event.type == KeyEventType.KeyUp) {
-                        if (fullscreen && visible) visible = false else onBack()
+                        when {
+                            panel != TvPanel.NONE -> {
+                                panel = TvPanel.NONE
+                                visible = true
+                            }
+                            fullscreen && visible -> visible = false
+                            else -> onCollapse()
+                        }
                     }
                     true
                 } else {
@@ -210,8 +244,10 @@ fun PlayerControls(
             .focusable()
     }
     LaunchedEffect(seekHint) {
-        if (seekHint != null) {
-            delay(700)
+        val hint = seekHint
+        if (hint != null) {
+            // Also carries messages like "Sign in to like videos" on TV.
+            delay(if (hint.length > 8) 2500 else 700)
             seekHint = null
         }
     }
@@ -245,7 +281,9 @@ fun PlayerControls(
             Text(
                 it,
                 Modifier
-                    .align(Alignment.Center)
+                    // Clear of the transport buttons when they are showing.
+                    .align(if (controlsShown) Alignment.TopCenter else Alignment.Center)
+                    .padding(top = if (controlsShown) 72.dp else 0.dp)
                     .background(Color(0x99000000), MaterialTheme.shapes.small)
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 color = Color.White,
@@ -295,7 +333,7 @@ fun PlayerControls(
             )
         }
 
-        AnimatedVisibility(visible, Modifier.fillMaxSize(), enter = fadeIn(), exit = fadeOut()) {
+        AnimatedVisibility(controlsShown, Modifier.fillMaxSize(), enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize().background(Color(0x66000000))) {
                 Row(
                     Modifier.align(Alignment.TopStart).fillMaxWidth().padding(4.dp),
@@ -404,15 +442,20 @@ fun PlayerControls(
                                 )
                             }
                         }
+                        if (tvVm != null) {
+                            TvPlayerActions(tvVm, onComments = { panel = TvPanel.COMMENTS }, onMessage = { seekHint = it })
+                        }
                         if (state.availableQualities.isNotEmpty() && !state.isLive) {
                             QualityButton(state, controller)
                         }
-                        IconButton(onClick = onToggleFullscreen, modifier = Modifier.focusHighlight()) {
-                            Icon(
-                                if (fullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                "Fullscreen",
-                                tint = Color.White,
-                            )
+                        if (!isTv) {
+                            IconButton(onClick = onToggleFullscreen, modifier = Modifier.focusHighlight()) {
+                                Icon(
+                                    if (fullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                    "Fullscreen",
+                                    tint = Color.White,
+                                )
+                            }
                         }
                     }
                     SeekBar(
@@ -425,8 +468,31 @@ fun PlayerControls(
                         chapters = chapters,
                         onScrub = { scrubMs = it },
                         keySeek = isTv,
+                        onFocus = { seekFocused = it },
                     )
                 }
+            }
+        }
+
+        if (tvVm != null) {
+            AnimatedVisibility(
+                panel == TvPanel.RELATED,
+                Modifier.align(Alignment.BottomCenter),
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
+            ) {
+                TvRelatedTray(tvVm, panelFocus, onPicked = {
+                    panel = TvPanel.NONE
+                    visible = false
+                })
+            }
+            AnimatedVisibility(
+                panel == TvPanel.COMMENTS,
+                Modifier.align(Alignment.CenterEnd),
+                enter = slideInHorizontally { it } + fadeIn(),
+                exit = slideOutHorizontally { it } + fadeOut(),
+            ) {
+                TvCommentsPanel(tvVm, panelFocus)
             }
         }
     }
@@ -638,6 +704,7 @@ fun SeekBar(
     chapters: List<Chapter> = emptyList(),
     onScrub: (Long?) -> Unit = {},
     keySeek: Boolean = false,
+    onFocus: (Boolean) -> Unit = {},
 ) {
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     var focused by remember { mutableStateOf(false) }
@@ -645,7 +712,10 @@ fun SeekBar(
         Modifier
     } else {
         Modifier
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged {
+                focused = it.isFocused
+                onFocus(it.isFocused)
+            }
             .onKeyEvent { event ->
                 val delta = when (event.key) {
                     Key.DirectionLeft -> -10_000L

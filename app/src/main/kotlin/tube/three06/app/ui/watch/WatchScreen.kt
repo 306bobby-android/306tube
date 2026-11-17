@@ -69,6 +69,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import tube.three06.app.ui.common.Avatar
 import tube.three06.app.ui.common.ErrorBox
 import tube.three06.app.ui.common.ItemView
@@ -77,6 +79,8 @@ import tube.three06.app.ui.common.Load
 import tube.three06.app.ui.common.LoadingBox
 import tube.three06.app.ui.common.LoadingRow
 import tube.three06.app.ui.common.LocalGraph
+import tube.three06.app.ui.common.LocalIsTv
+import tube.three06.app.ui.common.focusHighlight
 import tube.three06.app.ui.common.LocalMessages
 import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.common.LocalPlay
@@ -596,34 +600,53 @@ private fun DescriptionSheet(d: VideoDetails, onSeek: (Long) -> Unit, onDismiss:
 
 @Composable
 private fun CommentsSheet(vm: WatchViewModel, onDismiss: () -> Unit) {
+    TubeSheet(onDismiss) {
+        CommentsList(vm, Modifier.fillMaxHeight(0.85f))
+    }
+}
+
+/** [firstFocus] is attached to the first comment and focused once comments arrive (TV panel). */
+@Composable
+fun CommentsList(vm: WatchViewModel, modifier: Modifier = Modifier, firstFocus: FocusRequester? = null) {
     val state by vm.comments.state.collectAsStateWithLifecycle()
     val replies by vm.replies.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.loadComments() }
-    TubeSheet(onDismiss) {
-        Box(Modifier.fillMaxHeight(0.85f)) {
-            when {
-                state.loading && state.items.isEmpty() -> LoadingBox()
-                state.error != null && state.items.isEmpty() -> ErrorBox(state.error!!, onRetry = vm.comments::load)
-                state.isEmpty -> Text("No comments yet", modifier = Modifier.align(Alignment.Center))
-                else -> LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-                    item {
-                        Text(
-                            "Comments",
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    }
-                    items(state.items, key = { it.id }) { c ->
-                        CommentRow(c, replies[c.id], onLoadReplies = { vm.loadReplies(c) })
-                    }
-                    if (state.continuation != null) {
-                        item("more") {
-                            if (state.loadingMore) {
-                                LoadingRow()
-                            } else {
-                                TextButton(onClick = vm.comments::loadMore, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Load more")
-                                }
+    if (firstFocus != null) {
+        LaunchedEffect(state.items.isNotEmpty()) {
+            if (state.items.isNotEmpty()) runCatching { firstFocus.requestFocus() }
+        }
+    }
+    Box(modifier) {
+        when {
+            state.loading && state.items.isEmpty() -> LoadingBox()
+            state.error != null && state.items.isEmpty() -> ErrorBox(state.error!!, onRetry = vm.comments::load)
+            state.isEmpty -> Text("No comments yet", modifier = Modifier.align(Alignment.Center))
+            else -> LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+                item {
+                    Text(
+                        "Comments",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+                itemsIndexed(state.items, key = { _, c -> c.id }) { index, c ->
+                    CommentRow(
+                        c,
+                        replies[c.id],
+                        onLoadReplies = { vm.loadReplies(c) },
+                        modifier = if (index == 0 && firstFocus != null) Modifier.focusRequester(firstFocus) else Modifier,
+                    )
+                }
+                if (state.continuation != null) {
+                    item("more") {
+                        if (state.loadingMore) {
+                            LoadingRow()
+                        } else {
+                            TextButton(
+                                onClick = vm.comments::loadMore,
+                                modifier = Modifier.fillMaxWidth().focusHighlight(color = MaterialTheme.colorScheme.onSurface),
+                            ) {
+                                Text("Load more")
                             }
                         }
                     }
@@ -640,18 +663,24 @@ private fun CommentRow(
     onLoadReplies: () -> Unit,
     level: Int = 0,
     mentionTarget: ChannelRef? = null,
+    modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.current
+    val canLoadReplies = c.replyCount > 0 && c.repliesContinuation != null && replies == null
+    // Comments have nothing to focus, and a D-pad only scrolls by moving focus. On TV each one
+    // is a focus stop, and OK opens its replies.
+    val tv = LocalIsTv.current
     Column(
-        Modifier
+        modifier
             .fillMaxWidth()
+            .then(if (tv) Modifier.clickable { if (canLoadReplies) onLoadReplies() } else Modifier)
             .padding(start = 16.dp + 32.dp * level, top = 8.dp, end = 16.dp, bottom = 4.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {
             Avatar(
                 c.author.avatarUrl,
                 if (level == 0) 32.dp else 24.dp,
-                Modifier.clickable(enabled = c.author.id != null) {
+                Modifier.clickable(enabled = !tv && c.author.id != null) {
                     c.author.id?.let { navigator.openChannel(it) }
                 },
             )
@@ -703,9 +732,18 @@ private fun CommentRow(
                         )
                     }
                 }
-                if (c.replyCount > 0 && c.repliesContinuation != null && replies == null) {
-                    TextButton(onClick = onLoadReplies, contentPadding = PaddingValues(0.dp)) {
-                        Text("${c.replyCount} replies")
+                if (canLoadReplies) {
+                    if (tv) {
+                        Text(
+                            "${c.replyCount} replies",
+                            Modifier.padding(top = 4.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    } else {
+                        TextButton(onClick = onLoadReplies, contentPadding = PaddingValues(0.dp)) {
+                            Text("${c.replyCount} replies")
+                        }
                     }
                 }
             }

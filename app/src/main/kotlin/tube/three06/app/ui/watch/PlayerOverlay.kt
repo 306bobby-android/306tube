@@ -133,7 +133,6 @@ fun PlayerOverlay(
 
     val isTv = LocalIsTv.current
     BackHandler(enabled = expanded) {
-        // On TV, Back leaves the player in one press; the details view is reached from the controls.
         if (fullscreen && !isTv) overlay.exitFullscreen() else overlay.collapse()
     }
 
@@ -180,9 +179,10 @@ fun PlayerOverlay(
                 fullscreen = true,
                 onToggleFullscreen = overlay::exitFullscreen,
                 onPip = onPip,
-                onCollapse = overlay::exitFullscreen,
+                // TV has no expanded-but-not-fullscreen state to fall back to.
+                onCollapse = if (isTv) overlay::collapse else overlay::exitFullscreen,
                 chapters = chapters,
-                onBack = if (isTv) overlay::collapse else overlay::exitFullscreen,
+                vm = vm,
             )
         }
         return
@@ -239,7 +239,10 @@ fun PlayerOverlay(
                 MiniPlayer(
                     state = state,
                     modifier = Modifier.alpha(1f - 4 * progress),
-                    onExpand = overlay::expand,
+                    onExpand = {
+                        overlay.expand()
+                        if (isTv) overlay.enterFullscreen(PlayerOverlayState.FullscreenSource.BUTTON)
+                    },
                 )
             } else {
                 val content = Modifier
@@ -263,16 +266,9 @@ fun PlayerOverlay(
                         )
                     }
                 }
-                if (isTv) {
-                    Row(content) {
-                        player(Modifier.weight(0.6f))
-                        WatchDetails(vm, Modifier.weight(0.4f))
-                    }
-                } else {
-                    Column(content) {
-                        player(Modifier.fillMaxWidth())
-                        WatchDetails(vm, Modifier.fillMaxSize())
-                    }
+                Column(content) {
+                    player(Modifier.fillMaxWidth())
+                    WatchDetails(vm, Modifier.fillMaxSize())
                 }
             }
         }
