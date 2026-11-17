@@ -1,0 +1,70 @@
+name: Test build
+
+# Branch pushes only. Tags are handled by release.yml.
+on:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # git describe needs the tags
+          fetch-depth: 0
+
+      - name: Version
+        run: |
+          # e.g. 1.0.0-12-gabc1234. Shares the last release's versionCode, so a test build
+          # installs over that release and the next release still installs over the test build.
+          name="$(git describe --tags --always)"
+          tag="$(git describe --tags --abbrev=0 2>/dev/null || echo 0.0.0)"
+          echo "VERSION_NAME=$name" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$(.github/scripts/version-code.sh "$tag")" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 secret is not set, test builds are signed with the release key"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          {
+            echo "storeFile=release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+
+      - name: Build
+        run: ./gradlew :app:assembleRelease -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE"
+
+      - name: Rename
+        run: cp app/build/outputs/apk/release/app-release.apk "306Tube-$VERSION_NAME.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 306Tube-${{ env.VERSION_NAME }}
+          path: 306Tube-${{ env.VERSION_NAME }}.apk
+          retention-days: 30

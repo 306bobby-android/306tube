@@ -42,6 +42,10 @@ Without `keystore.properties` you get an unsigned APK. An update only installs o
 
 `lintVitalRelease` prints a wall of `Module was compiled with an incompatible version of Kotlin` errors. It's noise, the build still passes.
 
+## Test builds
+
+Every push to a branch is built by `.github/workflows/build.yml` and signed with the release key, so it installs over a released copy. The APK is attached to the workflow run as an artifact, kept for 30 days. Its version is `git describe`, like `1.0.0-12-gabc1234`.
+
 ## Cutting a release
 
 Releases are built by `.github/workflows/release.yml` when a version tag is pushed.
