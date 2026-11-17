@@ -39,6 +39,7 @@ import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.common.Paged
 import tube.three06.app.ui.common.PagedColumn
 import tube.three06.app.ui.common.graphViewModel
+import tube.three06.app.ui.common.hidingShorts
 import tube.three06.app.ui.common.itemKey
 import tube.three06.app.ui.common.parsePublishedMillis
 import tube.three06.app.ui.common.rememberItemClick
@@ -126,6 +127,7 @@ class SubscriptionsViewModel(private val graph: AppGraph) : ViewModel() {
 fun SubscriptionsScreen() {
     val vm = graphViewModel { SubscriptionsViewModel(it) }
     val state by vm.feed.state.collectAsStateWithLifecycle()
+    val items = state.items.hidingShorts()
     val channels by vm.channels.collectAsStateWithLifecycle()
     val signedIn by vm.signedIn.collectAsStateWithLifecycle()
     val nav = LocalNavigator.current
@@ -147,7 +149,7 @@ fun SubscriptionsScreen() {
             return@Scaffold
         }
         PagedColumn(
-            state = state,
+            state = state.copy(items = items),
             onRefresh = vm::refresh,
             onLoadMore = vm.feed::loadMore,
             onRetry = vm::refresh,
@@ -173,7 +175,7 @@ fun SubscriptionsScreen() {
                 }
             },
         ) {
-            items(state.items, key = { itemKey(it) }) { item ->
+            items(items, key = { itemKey(it) }) { item ->
                 ItemView(item, onItemClick)
             }
         }

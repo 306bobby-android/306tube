@@ -1,14 +1,18 @@
 package tube.three06.app.ui.common
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import tube.three06.app.di.AppGraph
 import tube.three06.innertube.model.Channel
 import tube.three06.innertube.model.Item
 import tube.three06.innertube.model.Playlist
 import tube.three06.innertube.model.Shelf
+import tube.three06.innertube.model.ShelfKind
 import tube.three06.innertube.model.Video
 import tube.three06.recommend.WatchEvent
 
@@ -45,6 +49,15 @@ inline fun <reified VM : ViewModel> graphViewModel(
 ): VM {
     val graph = LocalGraph.current
     return viewModel(key = key, initializer = { create(graph) })
+}
+
+@Composable
+fun List<Item>.hidingShorts(): List<Item> {
+    val settings by LocalGraph.current.settings.state.collectAsStateWithLifecycle()
+    val hide = settings.hideShorts
+    return remember(this, hide) {
+        if (hide) filterNot { it is Shelf && it.kind == ShelfKind.SHORTS } else this
+    }
 }
 
 @Composable

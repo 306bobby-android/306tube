@@ -154,6 +154,7 @@ fun SettingsScreen() {
                 }
                 SwitchRow("Dynamic color", "Use wallpaper colors on Android 12+", settings.dynamicColor) { update { s -> s.copy(dynamicColor = it) } }
                 SwitchRow("Home tab", "Off hides the Home feed and starts the app on Subscriptions", settings.showHome) { update { s -> s.copy(showHome = it) } }
+                SwitchRow("Hide Shorts shelves", "Remove the Shorts rows from Home, Subscriptions, search and related videos", settings.hideShorts) { update { s -> s.copy(hideShorts = it) } }
             }
 
             item { SettingsHeader("Playback") }

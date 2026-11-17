@@ -88,6 +88,7 @@ import tube.three06.app.ui.common.avatarUrl
 import tube.three06.app.ui.common.formatCount
 import tube.three06.app.ui.common.formatDuration
 import tube.three06.app.ui.common.formatMillis
+import tube.three06.app.ui.common.hidingShorts
 import tube.three06.app.ui.common.itemKey
 import tube.three06.app.ui.common.shareVideo
 import tube.three06.app.ui.common.thumbnailUrl
@@ -115,6 +116,7 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
     val subscribed by vm.subscribed.collectAsStateWithLifecycle()
     val signedIn by vm.signedIn.collectAsStateWithLifecycle()
     val related by vm.related.state.collectAsStateWithLifecycle()
+    val relatedItems = related.items.hidingShorts()
     val resumeOffer by graph.overlay.resumeOffer.collectAsStateWithLifecycle()
     val navigator = LocalNavigator.current
     val play = LocalPlay.current
@@ -474,7 +476,7 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        items(related.items, key = { itemKey(it) }) { item ->
+        items(relatedItems, key = { itemKey(it) }) { item ->
             ItemView(item, onClick = { clicked ->
                 when (clicked) {
                     is Video -> play.play(clicked, source = WatchEvent.Source.RELATED)

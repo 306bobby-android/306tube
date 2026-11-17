@@ -73,6 +73,7 @@ data class Settings(
     val deArrow: Boolean = false,
     val deArrowRandomThumbnail: Boolean = false,
     val showHome: Boolean = true,
+    val hideShorts: Boolean = true,
     val returnYouTubeDislike: Boolean = true,
     val syncHistory: Boolean = true,
     val visitorData: String? = null,
@@ -109,6 +110,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val deArrow = booleanPreferencesKey("dearrow")
         val deArrowRandomThumbnail = booleanPreferencesKey("dearrow_random_thumbnail")
         val showHome = booleanPreferencesKey("show_home")
+        val hideShorts = booleanPreferencesKey("hide_shorts")
         val ryd = booleanPreferencesKey("ryd")
         val syncHistory = booleanPreferencesKey("sync_history")
         val visitorData = stringPreferencesKey("visitor_data")
@@ -145,6 +147,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             deArrow = p[Keys.deArrow] ?: d.deArrow,
             deArrowRandomThumbnail = p[Keys.deArrowRandomThumbnail] ?: d.deArrowRandomThumbnail,
             showHome = p[Keys.showHome] ?: d.showHome,
+            hideShorts = p[Keys.hideShorts] ?: d.hideShorts,
             returnYouTubeDislike = p[Keys.ryd] ?: d.returnYouTubeDislike,
             syncHistory = p[Keys.syncHistory] ?: d.syncHistory,
             visitorData = p[Keys.visitorData],
@@ -184,6 +187,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             p[Keys.deArrow] = s.deArrow
             p[Keys.deArrowRandomThumbnail] = s.deArrowRandomThumbnail
             p[Keys.showHome] = s.showHome
+            p[Keys.hideShorts] = s.hideShorts
             p[Keys.ryd] = s.returnYouTubeDislike
             p[Keys.syncHistory] = s.syncHistory
             if (s.visitorData != null) p[Keys.visitorData] = s.visitorData else p.remove(Keys.visitorData)

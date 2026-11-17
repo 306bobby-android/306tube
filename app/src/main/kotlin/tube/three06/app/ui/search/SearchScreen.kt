@@ -63,6 +63,7 @@ import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.common.Paged
 import tube.three06.app.ui.common.PagedColumn
 import tube.three06.app.ui.common.graphViewModel
+import tube.three06.app.ui.common.hidingShorts
 import tube.three06.app.ui.common.itemKey
 import tube.three06.app.ui.common.rememberItemClick
 import tube.three06.innertube.model.Item
@@ -129,6 +130,7 @@ fun SearchScreen(initialQuery: String?) {
     val recent by vm.recent.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
     val results by vm.results.state.collectAsStateWithLifecycle()
+    val resultItems = results.items.hidingShorts()
     val nav = LocalNavigator.current
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
@@ -206,14 +208,14 @@ fun SearchScreen(initialQuery: String?) {
             } else {
                 FilterChips(filter, vm::setFilter)
                 PagedColumn(
-                    state = results,
+                    state = results.copy(items = resultItems),
                     onRefresh = vm.results::load,
                     onLoadMore = vm.results::loadMore,
                     onRetry = vm.results::load,
                     emptyTitle = "No results",
                     emptyMessage = "Try different words or filters.",
                 ) {
-                    items(results.items, key = { itemKey(it) }) { item ->
+                    items(resultItems, key = { itemKey(it) }) { item ->
                         ItemView(item, onItemClick)
                     }
                 }
