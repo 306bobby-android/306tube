@@ -91,7 +91,7 @@ fun Modifier.focusHighlight(shape: Shape = CircleShape, color: Color = Color.Whi
 }
 
 /**
- * Feed items for a LazyColumn. With more than one column, runs of plain videos are laid out as
+ * Feed items for a LazyColumn. With more than one column, runs of videos are laid out as
  * grid rows; everything else (shelves, channels, playlists) keeps the full width.
  */
 fun LazyListScope.feedItems(items: List<Item>, columns: Int, content: @Composable (Item) -> Unit) {
@@ -102,7 +102,7 @@ fun LazyListScope.feedItems(items: List<Item>, columns: Int, content: @Composabl
     val rows = ArrayList<List<Item>>()
     var run = ArrayList<Item>()
     for (item in items) {
-        if (item is Video && !item.isShort) {
+        if (item is Video) {
             run.add(item)
             if (run.size == columns) {
                 rows.add(run)
@@ -119,7 +119,7 @@ fun LazyListScope.feedItems(items: List<Item>, columns: Int, content: @Composabl
     if (run.isNotEmpty()) rows.add(run)
 
     items(rows, key = { itemKey(it.first()) }) { row ->
-        if (row.first() !is Video || (row.first() as Video).isShort) {
+        if (row.first() !is Video) {
             content(row.first())
         } else {
             Row(
