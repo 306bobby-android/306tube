@@ -39,6 +39,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // emulators, the TV images in particular, are x86_64 only
+            ndk { abiFilters += "x86_64" }
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.findByName("release")
