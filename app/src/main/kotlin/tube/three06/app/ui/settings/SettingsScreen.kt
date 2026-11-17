@@ -1,6 +1,8 @@
 package tube.three06.app.ui.settings
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import tube.three06.app.data.ResumeMode
@@ -285,7 +288,8 @@ fun SettingsScreen() {
                         supportingContent = {
                             Text(
                                 if (linked) {
-                                    "Shows up as \"${receiver.name}\" on phones on this network while 306Tube is open."
+                                    "Shows up as \"${receiver.name}\" on phones on this network" +
+                                        if (settings.castInBackground) "." else " while 306Tube is open."
                                 } else {
                                     "Not connected to YouTube's cast service. Check the network."
                                 },
@@ -311,6 +315,37 @@ fun SettingsScreen() {
                             }
                         },
                     )
+                    // Re-read on resume: the permission is granted on a system screen, not here.
+                    var canOpen by remember { mutableStateOf(receiver.canOpenOverOtherApps()) }
+                    LifecycleResumeEffect(Unit) {
+                        canOpen = receiver.canOpenOverOtherApps()
+                        onPauseOrDispose {}
+                    }
+                    SwitchRow(
+                        "Stay available in the background",
+                        "Keep this TV in the cast list when 306Tube is closed, starting when the TV boots",
+                        settings.castInBackground,
+                    ) { enabled ->
+                        scope.launch { receiver.setBackground(enabled) }
+                        if (enabled && !canOpen && !openOverlaySettings(context)) {
+                            messages("This TV has no screen for that permission. See the note below.")
+                        }
+                    }
+                    if (settings.castInBackground && !canOpen) {
+                        ListItem(
+                            headlineContent = { Text("Allow display over other apps") },
+                            supportingContent = {
+                                Text(
+                                    "Needed so a cast can open the player while another app is on screen. " +
+                                        "If no settings screen opens, grant it from a computer: " +
+                                        "adb shell appops set ${context.packageName} SYSTEM_ALERT_WINDOW allow",
+                                )
+                            },
+                            modifier = Modifier.clickable {
+                                if (!openOverlaySettings(context)) messages("This TV has no screen for that permission")
+                            },
+                        )
+                    }
                 }
             } else if (screens.isEmpty()) {
                 item {
@@ -449,5 +484,19 @@ private fun <T> ChoiceRow(
             },
             confirmButton = { TextButton(onClick = { open = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** Opens the system screen for "display over other apps". False if this device has none. */
+private fun openOverlaySettings(context: Context): Boolean {
+    val pkg = Uri.parse("package:${context.packageName}")
+    // Many Android TV builds leave out the overlay screen; the app's details page is the next best.
+    val intents = listOf(
+        Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, pkg),
+        Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
+        Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg),
+    )
+    return intents.any { intent ->
+        runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
     }
 }

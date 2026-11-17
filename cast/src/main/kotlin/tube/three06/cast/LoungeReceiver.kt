@@ -46,6 +46,7 @@ sealed interface ReceiverCommand {
     data class SeekTo(val seconds: Long) : ReceiverCommand
     data class SetVolume(val percent: Int) : ReceiverCommand
     data class RemoteConnected(val name: String) : ReceiverCommand
+    data class SetAutoplay(val enabled: Boolean) : ReceiverCommand
     data object Play : ReceiverCommand
     data object Pause : ReceiverCommand
     data object Stop : ReceiverCommand
@@ -61,6 +62,7 @@ data class ReceiverPlayback(
     val index: Int = 0,
     val hasNext: Boolean = false,
     val hasPrevious: Boolean = false,
+    val autoplay: Boolean = false,
 ) {
     companion object {
         // YouTube player state codes, as the lounge protocol carries them.
@@ -267,6 +269,7 @@ class LoungeReceiver(
             "previous" -> ReceiverCommand.Previous
             "seekTo" -> event.string("newTime")?.toDoubleOrNull()?.let { ReceiverCommand.SeekTo(it.toLong()) }
             "setVolume" -> event.string("volume")?.toIntOrNull()?.let { ReceiverCommand.SetVolume(it.coerceIn(0, 100)) }
+            "setAutoplayMode" -> event.string("autoplayMode")?.let { ReceiverCommand.SetAutoplay(it == "ENABLED") }
             "remoteConnected" -> ReceiverCommand.RemoteConnected(event.string("name") ?: "A device")
             else -> null
         }
@@ -307,14 +310,25 @@ class LoungeReceiver(
         val p = playback()
         if (p.videoId == null) {
             send("nowPlaying")
+            reportAutoplay()
         } else {
             send("nowPlaying", mapOf("videoId" to p.videoId, "currentIndex" to p.index.toString()) + stateParams(p))
-            send(
-                "onHasPreviousNextChanged",
-                mapOf("hasPrevious" to p.hasPrevious.toString(), "hasNext" to p.hasNext.toString()),
-            )
+            reportQueue()
+            reportAutoplay()
         }
     }
+
+    suspend fun reportQueue() {
+        val p = playback()
+        send(
+            "onHasPreviousNextChanged",
+            mapOf("hasPrevious" to p.hasPrevious.toString(), "hasNext" to p.hasNext.toString()),
+        )
+    }
+
+    // Unless the screen says otherwise, the service tells remotes autoplay is UNSUPPORTED.
+    suspend fun reportAutoplay() =
+        send("onAutoplayModeChanged", mapOf("autoplayMode" to if (playback().autoplay) "ENABLED" else "DISABLED"))
 
     suspend fun reportState() = send("onStateChange", stateParams(playback()))
 

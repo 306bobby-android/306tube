@@ -31,7 +31,7 @@ Status: 1.0-RC1. Daily-drivable, expect the odd rough edge.
 - DeArrow titles and thumbnails
 - Return YouTube Dislike
 - Cast to a TV on your network, or link one with a TV code
-- On Android TV, 306Tube is also a cast target: it shows up in the cast list of YouTube and 306Tube on phones, and has its own TV code under Settings → Cast
+- On Android TV, 306Tube is also a cast target: it shows up in the cast list of YouTube and 306Tube on phones, and has its own TV code under Settings → Cast. It only listens while the app is open unless you turn on Stay available in the background there.
 
 ## Signing in
 

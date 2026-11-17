@@ -1,6 +1,6 @@
 package tube.three06.app.data
 
-import android.content.Context
+import android.content.Intent
 import android.media.AudioManager
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -8,8 +8,14 @@ import android.os.SystemClock
 import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import tube.three06.app.MainActivity
 import tube.three06.app.di.AppGraph
 import tube.three06.app.ui.watch.PlayerLauncher
 import tube.three06.cast.DialServer
@@ -29,6 +35,7 @@ class CastReceiver(private val graph: AppGraph) {
 
     private val audio = graph.context.getSystemService(AudioManager::class.java)
     private val launcher = PlayerLauncher(graph, graph.scope)
+    private var queueJob: Job? = null
 
     private val store = object : ReceiverStore {
         override suspend fun load(): ReceiverIdentity? {
@@ -58,7 +65,20 @@ class CastReceiver(private val graph: AppGraph) {
 
     suspend fun pairingCode(): String = receiver.pairingCode()
 
+    /** Whether a cast can bring the player up while another app is on screen. */
+    fun canOpenOverOtherApps(): Boolean = android.provider.Settings.canDrawOverlays(graph.context)
+
+    suspend fun setBackground(enabled: Boolean) {
+        graph.settings.update { it.copy(castInBackground = enabled) }
+        if (enabled) CastReceiverService.start(graph.context) else CastReceiverService.stop(graph.context)
+    }
+
+    private companion object {
+        const val QUEUE_LOOKUPS = 50
+    }
+
     fun start() {
+        if (graph.settings.current.castInBackground) CastReceiverService.start(graph.context)
         graph.scope.launch { receiver.run() }
         graph.scope.launch {
             // Without the lock the Wi-Fi chip drops the multicast SSDP searches phones send.
@@ -73,20 +93,43 @@ class CastReceiver(private val graph: AppGraph) {
         }
         graph.scope.launch { receiver.commands.collect { runCatching { handle(it) } } }
         graph.scope.launch { reportPlayback() }
+        graph.scope.launch {
+            graph.player.queue
+                .map { q -> (q.currentIndex > 0) to (q.currentIndex < q.items.lastIndex) }
+                .distinctUntilChanged()
+                .collect { receiver.reportQueue() }
+        }
     }
 
     private suspend fun handle(command: ReceiverCommand) {
         val player = graph.player
         when (command) {
             is ReceiverCommand.SetPlaylist -> {
+                queueJob?.cancel()
+                showPlayer()
                 val id = command.videoIds[command.index]
                 val video = lookup(id)
-                val queue = command.videoIds.map { if (it == id) video else placeholder(it) }
-                launcher.play(video, queue, WatchEvent.Source.EXTERNAL, command.startSeconds * 1000)
+                // Start on the one video now; what follows is queued as its details arrive, so
+                // a long playlist doesn't hold up playback. Earlier entries stay as bare ids.
+                val head = command.videoIds.take(command.index).map(::placeholder) + video
+                launcher.play(video, head, WatchEvent.Source.EXTERNAL, command.startSeconds * 1000)
+                queueJob = graph.scope.launch {
+                    val rest = command.videoIds.drop(command.index + 1)
+                    val details = rest.take(QUEUE_LOOKUPS).map { async { lookup(it) } }
+                    // Let the launcher's own coroutine set the queue before adding to it.
+                    graph.player.queue.first { q -> q.items.any { it.id == id } }
+                    details.forEach { player.enqueue(it.await()) }
+                    rest.drop(QUEUE_LOOKUPS).forEach { player.enqueue(placeholder(it)) }
+                }
             }
             is ReceiverCommand.UpdatePlaylist -> {
+                queueJob?.join()
                 val known = player.queue.value.items.map { it.id }.toSet()
                 command.videoIds.filter { it !in known }.forEach { player.enqueue(lookup(it)) }
+            }
+            is ReceiverCommand.SetAutoplay -> {
+                player.setAutoplay(command.enabled)
+                graph.settings.update { it.copy(autoplay = command.enabled) }
             }
             is ReceiverCommand.SeekTo -> player.seekTo(command.seconds * 1000)
             is ReceiverCommand.SetVolume -> {
@@ -100,6 +143,15 @@ class CastReceiver(private val graph: AppGraph) {
             ReceiverCommand.Stop -> player.stop()
             ReceiverCommand.Next -> player.next()
             ReceiverCommand.Previous -> player.previous()
+        }
+    }
+
+    // From the background this only works with the "display over other apps" permission.
+    private fun showPlayer() {
+        runCatching {
+            graph.context.startActivity(
+                Intent(graph.context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         }
     }
 
@@ -145,6 +197,7 @@ class CastReceiver(private val graph: AppGraph) {
             index = queue.currentIndex.coerceAtLeast(0),
             hasNext = queue.currentIndex < queue.items.lastIndex,
             hasPrevious = queue.currentIndex > 0,
+            autoplay = s.autoplay,
         )
     }
 
@@ -154,7 +207,12 @@ class CastReceiver(private val graph: AppGraph) {
         var lastCode = ReceiverPlayback.STOPPED
         var lastPosition = 0L
         var lastAt = SystemClock.elapsedRealtime()
+        var lastAutoplay: Boolean? = null
         graph.player.state.collect { s ->
+            if (s.autoplay != lastAutoplay) {
+                lastAutoplay = s.autoplay
+                receiver.reportAutoplay()
+            }
             val id = s.current?.id
             val code = stateCode(s)
             val now = SystemClock.elapsedRealtime()

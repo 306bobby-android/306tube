@@ -80,6 +80,7 @@ data class Settings(
     val castSenderId: String? = null,
     val castScreenId: String? = null,
     val castReceiverId: String? = null,
+    val castInBackground: Boolean = false,
 )
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore("settings")
@@ -119,6 +120,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val castSenderId = stringPreferencesKey("cast_sender_id")
         val castScreenId = stringPreferencesKey("cast_screen_id")
         val castReceiverId = stringPreferencesKey("cast_receiver_id")
+        val castInBackground = booleanPreferencesKey("cast_in_background")
     }
 
     val flow: Flow<Settings> = store.data.map { decode(it) }
@@ -158,6 +160,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             castSenderId = p[Keys.castSenderId],
             castScreenId = p[Keys.castScreenId],
             castReceiverId = p[Keys.castReceiverId],
+            castInBackground = p[Keys.castInBackground] ?: d.castInBackground,
         )
     }
 
@@ -177,6 +180,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             p[Keys.autoplayCountdown] = s.autoplayCountdownSeconds
             p[Keys.pip] = s.pictureInPicture
             p[Keys.backgroundPlay] = s.backgroundPlay
+            p[Keys.castInBackground] = s.castInBackground
             p[Keys.resume] = s.resume.name
             p[Keys.swipeBrightness] = s.swipeBrightness
             p[Keys.swipeVolume] = s.swipeVolume
