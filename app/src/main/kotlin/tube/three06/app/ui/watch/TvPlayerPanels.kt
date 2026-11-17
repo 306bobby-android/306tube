@@ -1,6 +1,10 @@
 package tube.three06.app.ui.watch
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -30,13 +34,20 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import tube.three06.app.ui.common.CompactVideoCard
 import tube.three06.app.ui.common.Load
 import tube.three06.app.ui.common.LocalPlay
@@ -47,7 +58,7 @@ import tube.three06.innertube.model.LikeStatus
 import tube.three06.innertube.model.Video
 import tube.three06.recommend.WatchEvent
 
-enum class TvPanel { NONE, RELATED, COMMENTS }
+enum class TvPanel { NONE, RELATED, COMMENTS, DESCRIPTION }
 
 // The panels sit on top of video, so they ignore the app theme and stay light-on-dark.
 private val PanelColors = darkColorScheme()
@@ -153,6 +164,52 @@ fun TvCommentsPanel(vm: WatchViewModel, focus: FocusRequester, modifier: Modifie
                     .background(Color(0xD9000000)),
                 firstFocus = focus,
             )
+        }
+    }
+}
+
+/** Description in a panel down the right edge. Up/Down scroll it, since text has nothing to focus. */
+@Composable
+fun TvDescriptionPanel(vm: WatchViewModel, focus: FocusRequester, modifier: Modifier = Modifier) {
+    val details by vm.details.collectAsStateWithLifecycle()
+    val d = (details as? Load.Ready)?.value
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    MaterialTheme(colorScheme = PanelColors) {
+        CompositionLocalProvider(LocalContentColor provides Color.White) {
+            Column(
+                modifier
+                    .fillMaxHeight()
+                    .width(440.dp)
+                    .background(Color(0xD9000000))
+                    .focusRequester(focus)
+                    .onKeyEvent { event ->
+                        val delta = when (event.key) {
+                            Key.DirectionUp -> -240f
+                            Key.DirectionDown -> 240f
+                            else -> return@onKeyEvent false
+                        }
+                        if (event.type == KeyEventType.KeyDown) scope.launch { scroll.animateScrollBy(delta) }
+                        true
+                    }
+                    .focusable()
+                    .verticalScroll(scroll)
+                    .padding(16.dp),
+            ) {
+                Text(d?.title ?: "Description", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    listOfNotNull(d?.viewCountText, d?.likeCountText?.let { "$it likes" }, d?.publishedText)
+                        .joinToString(" · "),
+                    Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Text(
+                    d?.description?.ifBlank { "No description" } ?: "Loading…",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
     }
 }

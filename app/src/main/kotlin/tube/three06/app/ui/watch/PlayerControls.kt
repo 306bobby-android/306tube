@@ -27,6 +27,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.Check
@@ -43,6 +47,8 @@ import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -52,6 +58,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,6 +91,8 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import tube.three06.app.ui.common.LocalGraph
 import tube.three06.app.ui.common.LocalIsTv
+import tube.three06.app.ui.common.LocalMessages
+import tube.three06.app.ui.common.LocalPlaylistChooser
 import tube.three06.app.ui.common.Thumb
 import tube.three06.app.ui.common.focusHighlight
 import tube.three06.app.ui.common.formatMillis
@@ -144,20 +153,26 @@ fun PlayerControls(
     val panelFocus = remember { FocusRequester() }
     var seekFocused by remember { mutableStateOf(false) }
     val controlsShown = visible && panel == TvPanel.NONE
+    var chaptersOpen by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    val overlayState = LocalGraph.current.overlay
+    val resumeOffer by overlayState.resumeOffer.collectAsStateWithLifecycle()
+    val resumeShown = isTv && resumeOffer != null
+    val popupOpen = menu != Menu.NONE || chaptersOpen || saving
 
-    LaunchedEffect(visible, state.isPlaying, menu, keyPresses, panel) {
-        if (visible && state.isPlaying && menu == Menu.NONE && panel == TvPanel.NONE) {
+    LaunchedEffect(visible, state.isPlaying, popupOpen, keyPresses, panel) {
+        if (visible && state.isPlaying && !popupOpen && panel == TvPanel.NONE) {
             delay(if (isTv) 5000 else 3500)
             visible = false
         }
     }
     if (isTv) {
         // Whatever was focused before the player opened is now underneath it.
-        LaunchedEffect(Unit) { runCatching { playFocus.requestFocus() } }
+        LaunchedEffect(Unit) { if (!resumeShown) runCatching { playFocus.requestFocus() } }
         // Hiding the controls or the up-next card removes the focused button; park focus on the
         // root so keys keep arriving. Outside fullscreen, don't pull focus out of the details pane.
-        LaunchedEffect(controlsShown, upNextShown, panel) {
-            if (upNextShown || !(fullscreen || hasFocus)) return@LaunchedEffect
+        LaunchedEffect(controlsShown, upNextShown, resumeShown, panel) {
+            if (upNextShown || resumeShown || !(fullscreen || hasFocus)) return@LaunchedEffect
             runCatching { (if (controlsShown) playFocus else rootFocus).requestFocus() }
         }
         BackHandler(enabled = fullscreen && visible) { visible = false }
@@ -181,7 +196,7 @@ fun PlayerControls(
             else -> {
                 if (panel != TvPanel.NONE) {
                     val leaving = (panel == TvPanel.RELATED && key == Key.DirectionUp) ||
-                        (panel == TvPanel.COMMENTS && key == Key.DirectionLeft)
+                        (panel != TvPanel.RELATED && key == Key.DirectionLeft)
                     if (leaving) {
                         panel = TvPanel.NONE
                         visible = true
@@ -354,6 +369,34 @@ fun PlayerControls(
                     } else {
                         Spacer(Modifier.weight(1f))
                     }
+                    val current = state.current
+                    if (tvVm != null && current != null) {
+                        IconButton(onClick = { panel = TvPanel.DESCRIPTION }, modifier = Modifier.focusHighlight()) {
+                            Icon(Icons.Outlined.Info, "Description", tint = Color.White)
+                        }
+                        IconButton(
+                            onClick = {
+                                tvVm.setAutoplay(!state.autoplay)
+                                seekHint = if (state.autoplay) "Autoplay off" else "Autoplay on"
+                            },
+                            modifier = Modifier.focusHighlight(),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.PlaylistPlay,
+                                if (state.autoplay) "Autoplay off" else "Autoplay on",
+                                tint = if (state.autoplay) MaterialTheme.colorScheme.primary else Color(0xB3FFFFFF),
+                            )
+                        }
+                        IconButton(onClick = { saving = true }, modifier = Modifier.focusHighlight()) {
+                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, "Save to playlist", tint = Color.White)
+                        }
+                        if (saving) {
+                            // The app's snackbar is hidden under a fullscreen player.
+                            CompositionLocalProvider(LocalMessages provides { seekHint = it }) {
+                                LocalPlaylistChooser(current) { saving = false }
+                            }
+                        }
+                    }
                     if (state.captions.isNotEmpty()) {
                         val on = state.selectedCaption != null
                         IconButton(
@@ -432,7 +475,27 @@ fun PlayerControls(
                         )
                         val chapter = chapters.lastOrNull { it.startSeconds * 1000 <= shown }
                         Box(Modifier.weight(1f).padding(start = 4.dp), contentAlignment = Alignment.CenterStart) {
-                            if (chapter != null) {
+                            if (isTv && chapters.isNotEmpty()) {
+                                TextButton(onClick = { chaptersOpen = true }, modifier = Modifier.focusHighlight()) {
+                                    Text(
+                                        chapter?.title ?: "Chapters",
+                                        Modifier.weight(1f, fill = false),
+                                        color = Color.White,
+                                        overflow = TextOverflow.Ellipsis,
+                                        maxLines = 1,
+                                        style = MaterialTheme.typography.labelMedium,
+                                    )
+                                    Icon(Icons.Default.ArrowDropDown, null, tint = Color.White)
+                                }
+                                DropdownMenu(expanded = chaptersOpen, onDismissRequest = { chaptersOpen = false }) {
+                                    chapters.forEach { c ->
+                                        MenuChoice("${formatMillis(c.startSeconds * 1000)}  ${c.title}", c == chapter) {
+                                            controller.seekTo(c.startSeconds * 1000)
+                                            chaptersOpen = false
+                                        }
+                                    }
+                                }
+                            } else if (chapter != null) {
                                 Text(
                                     " · ${chapter.title}",
                                     color = Color(0xDDFFFFFF),
@@ -493,6 +556,37 @@ fun PlayerControls(
                 exit = slideOutHorizontally { it } + fadeOut(),
             ) {
                 TvCommentsPanel(tvVm, panelFocus)
+            }
+            AnimatedVisibility(
+                panel == TvPanel.DESCRIPTION,
+                Modifier.align(Alignment.CenterEnd),
+                enter = slideInHorizontally { it } + fadeIn(),
+                exit = slideOutHorizontally { it } + fadeOut(),
+            ) {
+                TvDescriptionPanel(tvVm, panelFocus)
+            }
+        }
+
+        val offer = resumeOffer
+        if (isTv && offer != null) {
+            val resumeFocus = remember { FocusRequester() }
+            LaunchedEffect(offer) {
+                runCatching { resumeFocus.requestFocus() }
+                delay(5000)
+                overlayState.resumeOffer.value = null
+            }
+            Button(
+                onClick = {
+                    controller.seekTo(offer)
+                    overlayState.resumeOffer.value = null
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 24.dp, bottom = 96.dp)
+                    .focusRequester(resumeFocus),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+            ) {
+                Text("Resume from ${formatMillis(offer)}")
             }
         }
     }
