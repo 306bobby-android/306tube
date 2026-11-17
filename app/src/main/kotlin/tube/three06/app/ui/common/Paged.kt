@@ -1,5 +1,6 @@
 package tube.three06.app.ui.common
 
+import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,8 @@ data class PagedState<T>(
     val error: String? = null,
     val loadedOnce: Boolean = false,
     val completedLoads: Int = 0,
+    // elapsedRealtime of the last good first-page load, 0 = never
+    val loadedAt: Long = 0,
 ) {
     val isEmpty: Boolean get() = loadedOnce && items.isEmpty() && error == null
     val canLoadMore: Boolean get() = continuation != null && !loadingMore && !loading
@@ -57,6 +60,7 @@ class Paged<T>(
                             continuation = page.continuation,
                             loadedOnce = true,
                             completedLoads = it.completedLoads + 1,
+                            loadedAt = SystemClock.elapsedRealtime(),
                         )
                     }
                 }
@@ -86,6 +90,7 @@ class Paged<T>(
                             continuation = page.continuation,
                             loadedOnce = true,
                             completedLoads = it.completedLoads + 1,
+                            loadedAt = SystemClock.elapsedRealtime(),
                         )
                     }
                 }
@@ -131,6 +136,7 @@ class Paged<T>(
             items = page.items.distinctBy(key),
             continuation = page.continuation,
             loadedOnce = true,
+            loadedAt = SystemClock.elapsedRealtime(),
         )
     }
 

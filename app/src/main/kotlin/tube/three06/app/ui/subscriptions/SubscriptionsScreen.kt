@@ -33,6 +33,7 @@ import kotlinx.coroutines.sync.withPermit
 import tube.three06.app.di.AppGraph
 import tube.three06.app.ui.common.ChannelRefCard
 import tube.three06.app.ui.common.EmptyBox
+import tube.three06.app.ui.common.FEED_STALE_AFTER_MILLIS
 import tube.three06.app.ui.common.ItemView
 import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.common.Paged
@@ -152,6 +153,7 @@ fun SubscriptionsScreen() {
             onRetry = vm::refresh,
             modifier = Modifier.fillMaxSize().padding(padding),
             emptyTitle = "No recent uploads",
+            staleAfterMillis = FEED_STALE_AFTER_MILLIS,
             header = {
                 if (channels.isNotEmpty()) {
                     item(key = "channels") {

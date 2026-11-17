@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import tube.three06.app.di.AppGraph
+import tube.three06.app.ui.common.FEED_STALE_AFTER_MILLIS
 import tube.three06.app.ui.common.ItemView
 import tube.three06.app.ui.common.Paged
 import tube.three06.app.ui.common.PagedColumn
@@ -125,6 +126,7 @@ fun HomeScreen() {
             onRetry = vm.feed::load,
             modifier = Modifier.fillMaxSize().padding(padding),
             emptyTitle = "Your feed is empty",
+            staleAfterMillis = FEED_STALE_AFTER_MILLIS,
             emptyMessage = "Watch or search for something and recommendations will show up here.",
         ) {
             items(items, key = { itemKey(it) }) { item ->
