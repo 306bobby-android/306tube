@@ -6,7 +6,7 @@
 
 Download `306Tube-{{VERSION}}.apk` below and open it. Android 8.0+ on arm64 or 32-bit ARM.
 
-Updating from an older release keeps your data. If Android says the package conflicts with an existing one, you have a build signed with a different key: uninstall that first.
+Pre-1.0.0 builds will need re-installed due to key and package name changes!
 
 ## About
 
