@@ -10,6 +10,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -70,6 +71,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -227,6 +229,23 @@ fun PlayerControls(
         return true
     }
 
+    // Left/Right off the end of a row would otherwise jump to whatever is nearest in another row.
+    val rowFocus = if (!isTv) {
+        Modifier
+    } else {
+        Modifier
+            .focusProperties {
+                exit = { direction ->
+                    if (direction == FocusDirection.Left || direction == FocusDirection.Right) {
+                        FocusRequester.Cancel
+                    } else {
+                        FocusRequester.Default
+                    }
+                }
+            }
+            .focusGroup()
+    }
+
     val tvKeys = if (!isTv) {
         Modifier
     } else {
@@ -351,7 +370,7 @@ fun PlayerControls(
         AnimatedVisibility(controlsShown, Modifier.fillMaxSize(), enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize().background(Color(0x66000000))) {
                 Row(
-                    Modifier.align(Alignment.TopStart).fillMaxWidth().padding(4.dp),
+                    Modifier.align(Alignment.TopStart).fillMaxWidth().padding(4.dp).then(rowFocus),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = onCollapse, modifier = Modifier.focusHighlight()) {
@@ -465,7 +484,7 @@ fun PlayerControls(
                 }
 
                 Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(rowFocus, verticalAlignment = Alignment.CenterVertically) {
                         val shown = scrubMs ?: state.positionMs
                         Text(
                             if (state.isLive) "LIVE" else "${formatMillis(shown)} / ${formatMillis(state.durationMs)}",

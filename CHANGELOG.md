@@ -8,6 +8,7 @@ Newest first. The release workflow copies the section matching the tag into the 
 - TV layout with typical controller controls
 - Fixed blank thumbnails with Random frame thumbnails on
 - Hide Shorts now also removes Shorts that show up as single videos in a feed, not just the Shorts shelves
+- Added dead-zone near top of player for swipe controls, allows viewing of status bar
 
 ## 1.0.0
 
