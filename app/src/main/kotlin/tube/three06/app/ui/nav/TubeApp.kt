@@ -8,16 +8,15 @@ import android.view.OrientationEventListener
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -62,7 +61,6 @@ import tube.three06.app.ui.channel.ChannelScreen
 import tube.three06.app.ui.common.LocalGraph
 import tube.three06.app.ui.common.LocalIsTv
 import tube.three06.app.ui.common.TvIndication
-import tube.three06.app.ui.common.focusHighlight
 import tube.three06.app.ui.common.LocalMessages
 import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.common.LocalPlay
@@ -230,23 +228,8 @@ private fun Shell(
 
         Box(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxSize()) {
-                if (isTv && showBars) {
-                    NavigationRail {
-                        tabs.forEach { tab ->
-                            val selected = isSelected(tab)
-                            NavigationRailItem(
-                                selected = selected,
-                                onClick = { onTab(tab) },
-                                icon = { Icon(if (selected) tab.selectedIcon else tab.icon, tab.label) },
-                                label = { Text(tab.label) },
-                                modifier = Modifier.focusHighlight(
-                                    MaterialTheme.shapes.medium,
-                                    MaterialTheme.colorScheme.onSurface,
-                                ),
-                            )
-                        }
-                    }
-                }
+                // The rail itself is drawn on top so opening it doesn't reflow the feed.
+                if (isTv && showBars) Spacer(Modifier.width(TvRailCollapsedWidth))
                 Scaffold(
                     modifier = Modifier.weight(1f),
                     bottomBar = {
@@ -282,6 +265,7 @@ private fun Shell(
                 }
             }
 
+            if (isTv && showBars) TvRail(tabs, isSelected, onTab)
             PlayerOverlay(watchVm, if (showBars && !isTv) navBarHeight else 0, onEnterPip)
         }
 
