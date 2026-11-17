@@ -66,6 +66,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import tube.three06.app.ui.common.Load
 import tube.three06.app.ui.common.LocalGraph
+import tube.three06.app.ui.common.LocalIsTv
 import tube.three06.app.ui.common.Thumb
 import tube.three06.app.ui.common.thumbnailUrl
 import tube.three06.innertube.model.VideoDetails
@@ -130,8 +131,10 @@ fun PlayerOverlay(
     }
     if (current == null) return
 
+    val isTv = LocalIsTv.current
     BackHandler(enabled = expanded) {
-        if (fullscreen) overlay.exitFullscreen() else overlay.collapse()
+        // On TV, Back leaves the player in one press; the details view is reached from the controls.
+        if (fullscreen && !isTv) overlay.exitFullscreen() else overlay.collapse()
     }
 
     val details by vm.details.collectAsStateWithLifecycle()
@@ -179,6 +182,7 @@ fun PlayerOverlay(
                 onPip = onPip,
                 onCollapse = overlay::exitFullscreen,
                 chapters = chapters,
+                onBack = if (isTv) overlay::collapse else overlay::exitFullscreen,
             )
         }
         return
@@ -238,18 +242,12 @@ fun PlayerOverlay(
                     onExpand = overlay::expand,
                 )
             } else {
-                Column(
-                    Modifier
-                        .fillMaxSize()
-                        .alpha(((progress - 0.25f) / 0.5f).coerceIn(0f, 1f))
-                        .windowInsetsPadding(WindowInsets.statusBars),
-                ) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16f / 9f)
-                            .background(Color.Black),
-                    ) {
+                val content = Modifier
+                    .fillMaxSize()
+                    .alpha(((progress - 0.25f) / 0.5f).coerceIn(0f, 1f))
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                val player: @Composable (Modifier) -> Unit = { playerModifier ->
+                    Box(playerModifier.aspectRatio(16f / 9f).background(Color.Black)) {
                         PlayerSurface(Modifier.fillMaxSize())
                         PlayerControls(
                             state = state,
@@ -264,7 +262,17 @@ fun PlayerOverlay(
                             chapters = chapters,
                         )
                     }
-                    WatchDetails(vm, Modifier.fillMaxSize())
+                }
+                if (isTv) {
+                    Row(content) {
+                        player(Modifier.weight(0.6f))
+                        WatchDetails(vm, Modifier.weight(0.4f))
+                    }
+                } else {
+                    Column(content) {
+                        player(Modifier.fillMaxWidth())
+                        WatchDetails(vm, Modifier.fillMaxSize())
+                    }
                 }
             }
         }

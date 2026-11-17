@@ -38,6 +38,7 @@ class PlayerLauncher(
             graph.player.setAutoplay(settings.autoplay)
             graph.player.setAutoplayCountdown(settings.autoplayCountdownSeconds * 1000L)
             graph.overlay.expand()
+            if (graph.isTv) graph.overlay.enterFullscreen(PlayerOverlayState.FullscreenSource.BUTTON)
         }
     }
 

@@ -381,7 +381,9 @@ private fun FullscreenEffect(overlay: PlayerOverlayState) {
     val fullscreen by overlay.fullscreen.collectAsStateWithLifecycle()
     val expanded by overlay.expanded.collectAsStateWithLifecycle()
     val lockPortrait by overlay.lockPortrait.collectAsStateWithLifecycle()
-    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // A TV is always landscape; rotation must not drive fullscreen or orientation locks there.
+    val isTv = LocalIsTv.current
+    val landscape = !isTv && LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     LaunchedEffect(landscape, expanded, fullscreen, lockPortrait) {
         if (landscape && expanded && !fullscreen && !lockPortrait) {
@@ -395,11 +397,13 @@ private fun FullscreenEffect(overlay: PlayerOverlayState) {
     LaunchedEffect(fullscreen, lockPortrait) {
         val window = activity.window
         val controller = WindowInsetsControllerCompat(window, view)
-        activity.requestedOrientation = when {
-            fullscreen && overlay.fullscreenSource == PlayerOverlayState.FullscreenSource.BUTTON ->
-                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            !fullscreen && lockPortrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        if (!isTv) {
+            activity.requestedOrientation = when {
+                fullscreen && overlay.fullscreenSource == PlayerOverlayState.FullscreenSource.BUTTON ->
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                !fullscreen && lockPortrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
         }
         if (fullscreen) {
             controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE

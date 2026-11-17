@@ -1,10 +1,12 @@
 package tube.three06.app.ui.watch
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cast
@@ -48,15 +51,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,7 +79,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.util.Locale
 import kotlinx.coroutines.delay
 import tube.three06.app.ui.common.LocalGraph
+import tube.three06.app.ui.common.LocalIsTv
 import tube.three06.app.ui.common.Thumb
+import tube.three06.app.ui.common.focusHighlight
 import tube.three06.app.ui.common.formatMillis
 import tube.three06.app.ui.common.thumbnailUrl
 import tube.three06.app.ui.nav.LocalShell
@@ -78,6 +95,7 @@ import tube.three06.player.SkipSegment
 
 private enum class Menu { NONE, MAIN, QUALITY, SPEED, CAPTIONS }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun PlayerControls(
     state: PlayerState,
@@ -89,6 +107,7 @@ fun PlayerControls(
     onCollapse: () -> Unit,
     modifier: Modifier = Modifier,
     chapters: List<Chapter> = emptyList(),
+    onBack: () -> Unit = onCollapse,
 ) {
     var visible by remember { mutableStateOf(true) }
     var scrubMs by remember { mutableStateOf<Long?>(null) }
@@ -108,11 +127,87 @@ fun PlayerControls(
         onDispose { swipe.resetBrightness() }
     }
 
-    LaunchedEffect(visible, state.isPlaying, menu) {
+    val isTv = LocalIsTv.current
+    val rootFocus = remember { FocusRequester() }
+    val playFocus = remember { FocusRequester() }
+    var hasFocus by remember { mutableStateOf(false) }
+    var rootFocused by remember { mutableStateOf(false) }
+    var keyPresses by remember { mutableIntStateOf(0) }
+    val upNextShown = state.upNext != null
+
+    LaunchedEffect(visible, state.isPlaying, menu, keyPresses) {
         if (visible && state.isPlaying && menu == Menu.NONE) {
-            delay(3500)
+            delay(if (isTv) 5000 else 3500)
             visible = false
         }
+    }
+    if (isTv) {
+        // Whatever was focused before the player opened is now underneath it.
+        LaunchedEffect(Unit) { runCatching { playFocus.requestFocus() } }
+        // Hiding the controls or the up-next card removes the focused button; park focus on the
+        // root so keys keep arriving. Outside fullscreen, don't pull focus out of the details pane.
+        LaunchedEffect(visible, upNextShown) {
+            if (upNextShown || !(fullscreen || hasFocus)) return@LaunchedEffect
+            runCatching { (if (visible) playFocus else rootFocus).requestFocus() }
+        }
+        BackHandler(enabled = fullscreen && visible) { visible = false }
+    }
+
+    fun seekStep(deltaMs: Long) {
+        controller.seekBy(deltaMs)
+        seekHint = if (deltaMs < 0) "-10 s" else "+10 s"
+    }
+
+    fun onKey(key: Key): Boolean {
+        keyPresses++
+        when (key) {
+            Key.MediaPlayPause -> controller.togglePlayPause()
+            Key.MediaPlay -> controller.resume()
+            Key.MediaPause -> controller.pause()
+            Key.MediaFastForward -> seekStep(10_000)
+            Key.MediaRewind -> seekStep(-10_000)
+            Key.MediaNext -> controller.next()
+            Key.MediaPrevious -> controller.previous()
+            else -> {
+                // Only the bare player takes D-pad keys; a focused control handles its own.
+                if (!rootFocused) return false
+                when (key) {
+                    Key.DirectionLeft -> seekStep(-10_000)
+                    Key.DirectionRight -> seekStep(10_000)
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.DirectionUp, Key.DirectionDown -> {
+                        visible = true
+                        runCatching { playFocus.requestFocus() }
+                    }
+                    else -> return false
+                }
+            }
+        }
+        return true
+    }
+
+    val tvKeys = if (!isTv) {
+        Modifier
+    } else {
+        Modifier
+            .onFocusChanged {
+                hasFocus = it.hasFocus
+                rootFocused = it.isFocused
+            }
+            // Everything under a fullscreen player is still composed and focusable.
+            .focusProperties { exit = { if (fullscreen) FocusRequester.Cancel else FocusRequester.Default } }
+            .focusRequester(rootFocus)
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Back) {
+                    // Left to the system, the first Back only clears focus.
+                    if (event.type == KeyEventType.KeyUp) {
+                        if (fullscreen && visible) visible = false else onBack()
+                    }
+                    true
+                } else {
+                    event.type == KeyEventType.KeyDown && onKey(event.key)
+                }
+            }
+            .focusable()
     }
     LaunchedEffect(seekHint) {
         if (seekHint != null) {
@@ -124,6 +219,7 @@ fun PlayerControls(
     Box(
         modifier
             .fillMaxSize()
+            .then(tvKeys)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onDoubleTap = { offset ->
@@ -195,6 +291,7 @@ fun PlayerControls(
                 onPlay = controller::playUpNext,
                 onCancel = controller::cancelUpNext,
                 modifier = Modifier.align(Alignment.Center),
+                grabFocus = isTv && (fullscreen || hasFocus),
             )
         }
 
@@ -204,7 +301,7 @@ fun PlayerControls(
                     Modifier.align(Alignment.TopStart).fillMaxWidth().padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = onCollapse) {
+                    IconButton(onClick = onCollapse, modifier = Modifier.focusHighlight()) {
                         Icon(Icons.Default.KeyboardArrowDown, "Collapse", tint = Color.White)
                     }
                     if (fullscreen && title != null) {
@@ -221,7 +318,10 @@ fun PlayerControls(
                     }
                     if (state.captions.isNotEmpty()) {
                         val on = state.selectedCaption != null
-                        IconButton(onClick = { controller.setCaptions(if (on) null else defaultCaption(state.captions)) }) {
+                        IconButton(
+                            onClick = { controller.setCaptions(if (on) null else defaultCaption(state.captions)) },
+                            modifier = Modifier.focusHighlight(),
+                        ) {
                             Icon(
                                 Icons.Default.ClosedCaption,
                                 if (on) "Captions off" else "Captions on",
@@ -229,18 +329,20 @@ fun PlayerControls(
                             )
                         }
                     }
-                    IconButton(onClick = shell::openCast) {
-                        Icon(
-                            if (shell.casting) Icons.Default.CastConnected else Icons.Default.Cast,
-                            "Cast",
-                            tint = Color.White,
-                        )
-                    }
-                    IconButton(onClick = onPip) {
-                        Icon(Icons.Default.PictureInPictureAlt, "Picture in picture", tint = Color.White)
+                    if (!isTv) {
+                        IconButton(onClick = shell::openCast) {
+                            Icon(
+                                if (shell.casting) Icons.Default.CastConnected else Icons.Default.Cast,
+                                "Cast",
+                                tint = Color.White,
+                            )
+                        }
+                        IconButton(onClick = onPip) {
+                            Icon(Icons.Default.PictureInPictureAlt, "Picture in picture", tint = Color.White)
+                        }
                     }
                     Box {
-                        IconButton(onClick = { menu = Menu.MAIN }) {
+                        IconButton(onClick = { menu = Menu.MAIN }, modifier = Modifier.focusHighlight()) {
                             Icon(Icons.Default.MoreVert, "Options", tint = Color.White)
                         }
                         SettingsMenu(menu, state, controller) { menu = it }
@@ -252,7 +354,7 @@ fun PlayerControls(
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = controller::previous, modifier = Modifier.size(48.dp)) {
+                    IconButton(onClick = controller::previous, modifier = Modifier.size(48.dp).focusHighlight()) {
                         Icon(Icons.Default.SkipPrevious, "Previous", Modifier.size(36.dp), tint = Color.White)
                     }
                     IconButton(
@@ -264,7 +366,7 @@ fun PlayerControls(
                                 controller.togglePlayPause()
                             }
                         },
-                        modifier = Modifier.size(64.dp),
+                        modifier = Modifier.size(64.dp).focusRequester(playFocus).focusHighlight(),
                     ) {
                         val icon = when {
                             state.status == PlayerState.Status.ENDED -> Icons.Default.Replay
@@ -276,7 +378,7 @@ fun PlayerControls(
                             Icon(icon, "Play/pause", Modifier.size(52.dp), tint = Color.White)
                         }
                     }
-                    IconButton(onClick = controller::next, modifier = Modifier.size(48.dp)) {
+                    IconButton(onClick = controller::next, modifier = Modifier.size(48.dp).focusHighlight()) {
                         Icon(Icons.Default.SkipNext, "Next", Modifier.size(36.dp), tint = Color.White)
                     }
                 }
@@ -305,7 +407,7 @@ fun PlayerControls(
                         if (state.availableQualities.isNotEmpty() && !state.isLive) {
                             QualityButton(state, controller)
                         }
-                        IconButton(onClick = onToggleFullscreen) {
+                        IconButton(onClick = onToggleFullscreen, modifier = Modifier.focusHighlight()) {
                             Icon(
                                 if (fullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                                 "Fullscreen",
@@ -322,6 +424,7 @@ fun PlayerControls(
                         segments = state.segments,
                         chapters = chapters,
                         onScrub = { scrubMs = it },
+                        keySeek = isTv,
                     )
                 }
             }
@@ -348,7 +451,10 @@ private fun UpNextCard(
     onPlay: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    grabFocus: Boolean = false,
 ) {
+    val playNow = remember { FocusRequester() }
+    if (grabFocus) LaunchedEffect(Unit) { runCatching { playNow.requestFocus() } }
     var remaining by remember(startsAtMillis) {
         mutableLongStateOf((startsAtMillis - System.currentTimeMillis()).coerceAtLeast(0L))
     }
@@ -397,8 +503,12 @@ private fun UpNextCard(
             }
         }
         Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = onCancel) { Text("Cancel", color = Color.White) }
-            TextButton(onClick = onPlay) { Text("Play now", color = Color.White) }
+            TextButton(onClick = onCancel, modifier = Modifier.focusHighlight(CircleShape)) {
+                Text("Cancel", color = Color.White)
+            }
+            TextButton(onClick = onPlay, modifier = Modifier.focusRequester(playNow).focusHighlight(CircleShape)) {
+                Text("Play now", color = Color.White)
+            }
         }
     }
 }
@@ -416,7 +526,7 @@ private fun QualityButton(state: PlayerState, controller: PlayerController) {
     var open by remember { mutableStateOf(false) }
     val label = qualityLabel(state)
     Box {
-        TextButton(onClick = { open = true }) {
+        TextButton(onClick = { open = true }, modifier = Modifier.focusHighlight()) {
             Icon(Icons.Default.HighQuality, null, Modifier.size(18.dp), tint = Color.White)
             Text(" $label", color = Color.White, style = MaterialTheme.typography.labelMedium)
         }
@@ -527,8 +637,28 @@ fun SeekBar(
     segments: List<SkipSegment> = emptyList(),
     chapters: List<Chapter> = emptyList(),
     onScrub: (Long?) -> Unit = {},
+    keySeek: Boolean = false,
 ) {
     var dragFraction by remember { mutableStateOf<Float?>(null) }
+    var focused by remember { mutableStateOf(false) }
+    val keys = if (!keySeek) {
+        Modifier
+    } else {
+        Modifier
+            .onFocusChanged { focused = it.isFocused }
+            .onKeyEvent { event ->
+                val delta = when (event.key) {
+                    Key.DirectionLeft -> -10_000L
+                    Key.DirectionRight -> 10_000L
+                    else -> return@onKeyEvent false
+                }
+                if (event.type == KeyEventType.KeyDown && durationMs > 0) {
+                    onSeek((positionMs + delta).coerceIn(0L, durationMs))
+                }
+                true
+            }
+            .focusable()
+    }
 
     fun scrubTo(fraction: Float) {
         dragFraction = fraction
@@ -542,6 +672,7 @@ fun SeekBar(
     Canvas(
         modifier
             .height(24.dp)
+            .then(keys)
             .pointerInput(durationMs) {
                 detectTapGestures { offset ->
                     if (durationMs > 0) {
@@ -593,7 +724,7 @@ fun SeekBar(
         }
         drawCircle(
             accent,
-            (if (dragFraction != null) 8.dp else 6.dp).toPx(),
+            (if (focused) 11.dp else if (dragFraction != null) 8.dp else 6.dp).toPx(),
             Offset(size.width * played, cy),
         )
     }

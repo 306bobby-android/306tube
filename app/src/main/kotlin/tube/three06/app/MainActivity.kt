@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         val state = graph.player.state.value
-        if (graph.settings.current.pictureInPicture && state.isPlaying && !state.audioOnly &&
+        if (!graph.isTv && graph.settings.current.pictureInPicture && state.isPlaying && !state.audioOnly &&
             (graph.overlay.expanded.value || graph.overlay.fullscreen.value)
         ) {
             enterPip()
