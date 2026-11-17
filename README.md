@@ -2,7 +2,7 @@
 
 A YouTube client for Android. No ads, no Google Play Services, works signed out.
 
-Status: 1.0-RC1. Daily-drivable, expect the odd rough edge.
+Status: Daily-drivable, maintained
 
 ## What it does
 
@@ -16,8 +16,8 @@ Status: 1.0-RC1. Daily-drivable, expect the odd rough edge.
 
 **Feeds**
 - Home, Subscriptions, search, channels, playlists
-- Signed out, Home is built on-device from your local history and subscriptions. Nothing leaves the phone. Turn it off and you get Trending instead.
-- Feeds only reload when you pull to refresh. After 30 minutes a bar at the bottom offers a refresh so you know it's stale.
+- Signed out, Home is built on-device from your local history and subscriptions. Uses a local algorithm. Turn it off and you get Trending instead.
+- Feeds only reload when you pull to refresh. After 30 minutes a bar at the bottom offers a refresh.
 - Shorts are hidden by default (Settings → Appearance)
 - Hide the Home tab entirely if you only care about Subscriptions
 
@@ -31,23 +31,21 @@ Status: 1.0-RC1. Daily-drivable, expect the odd rough edge.
 - DeArrow titles and thumbnails
 - Return YouTube Dislike
 - Cast to a TV on your network, or link one with a TV code
-- On Android TV, 306Tube is also a cast target: it shows up in the cast list of YouTube and 306Tube on phones, and has its own TV code under Settings → Cast. It only listens while the app is open unless you turn on Stay available in the background there.
+- On Android TV, 306Tube is also a cast target: it shows up in the cast list of YouTube and 306Tube on phones, and has its own TV code under Settings → Cast.
 
 ## Signing in
 
-Optional. Signing in gets you your real Home feed, subscriptions, Watch later, liked videos and playlists. Multiple accounts are supported.
+Optional. Signing in gets you your real Home feed, subscriptions, Watch later, liked videos and playlists. Multiple accounts and brands are supported.
 
-Sign-in happens in a WebView against Google's own login page. The app keeps the resulting cookies, encrypted with a key in the Android Keystore. Your password never touches the app.
+The app keeps your login cookies, encrypted with a key in the Android Keystore. Your password never touches the app.
 
 Watch history sync to YouTube is on by default once you're signed in. Kill it in Settings → Privacy if you don't want that.
 
 ## Install
 
-Android 8.0+ on arm64 or 32-bit ARM. The same APK runs on Android TV, where it switches to a remote-friendly layout.
+Android 8.0+ on arm64 or 32-bit ARM.
 
 Grab the latest APK from [Releases](https://github.com/306bobby-android/306tube/releases) and open it. Or build it yourself: see [BUILDING.md](BUILDING.md).
-
-What changed between versions is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Good to know
 
