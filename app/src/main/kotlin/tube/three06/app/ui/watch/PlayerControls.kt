@@ -130,7 +130,8 @@ fun PlayerControls(
     val shell = LocalShell.current
 
     val swipe = rememberPlayerSwipe(controller)
-    val swipeEnabled = fullscreen || settings.swipeInPortrait
+    val isTv = LocalIsTv.current
+    val swipeEnabled = !isTv && (fullscreen || settings.swipeInPortrait)
     swipe.settings = settings
     swipe.positionMs = state.positionMs
     swipe.durationMs = state.durationMs
@@ -140,7 +141,6 @@ fun PlayerControls(
         onDispose { swipe.resetBrightness() }
     }
 
-    val isTv = LocalIsTv.current
     val rootFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
     var hasFocus by remember { mutableStateOf(false) }

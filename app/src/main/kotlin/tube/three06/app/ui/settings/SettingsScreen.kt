@@ -48,6 +48,7 @@ import tube.three06.app.data.StreamResolverChoice
 import tube.three06.app.data.ThemeMode
 import tube.three06.app.data.ytdlp.YtDlp
 import tube.three06.app.ui.common.LocalGraph
+import tube.three06.app.ui.common.LocalIsTv
 import tube.three06.app.ui.common.LocalMessages
 import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.login.AccountsSheet
@@ -67,6 +68,7 @@ private val qualityOptions = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen() {
+    val isTv = LocalIsTv.current
     val graph = LocalGraph.current
     val context = LocalContext.current
     val nav = LocalNavigator.current
@@ -205,13 +207,15 @@ fun SettingsScreen() {
                 ) { update { s -> s.copy(resolver = it) } }
             }
 
-            item { SettingsHeader("Player gestures") }
-            item {
-                SwitchRow("Swipe for brightness", "Drag up or down on the left half; drag to the bottom for automatic", settings.swipeBrightness) { update { s -> s.copy(swipeBrightness = it) } }
-                SwitchRow("Swipe for volume", "Drag up or down on the right half", settings.swipeVolume) { update { s -> s.copy(swipeVolume = it) } }
-                SwitchRow("Swipe to seek", "Drag left or right; a full-width drag moves 90 seconds", settings.swipeSeek) { update { s -> s.copy(swipeSeek = it) } }
-                SwitchRow("Also in the portrait player", "Off limits gestures to fullscreen, so dragging the video down still minimizes it", settings.swipeInPortrait) { update { s -> s.copy(swipeInPortrait = it) } }
-                SwitchRow("Haptic feedback", "Vibrate when a swipe starts", settings.swipeHaptics) { update { s -> s.copy(swipeHaptics = it) } }
+            if (!isTv) {
+                item { SettingsHeader("Player gestures") }
+                item {
+                    SwitchRow("Swipe for brightness", "Drag up or down on the left half; drag to the bottom for automatic", settings.swipeBrightness) { update { s -> s.copy(swipeBrightness = it) } }
+                    SwitchRow("Swipe for volume", "Drag up or down on the right half", settings.swipeVolume) { update { s -> s.copy(swipeVolume = it) } }
+                    SwitchRow("Swipe to seek", "Drag left or right; a full-width drag moves 90 seconds", settings.swipeSeek) { update { s -> s.copy(swipeSeek = it) } }
+                    SwitchRow("Also in the portrait player", "Off limits gestures to fullscreen, so dragging the video down still minimizes it", settings.swipeInPortrait) { update { s -> s.copy(swipeInPortrait = it) } }
+                    SwitchRow("Haptic feedback", "Vibrate when a swipe starts", settings.swipeHaptics) { update { s -> s.copy(swipeHaptics = it) } }
+                }
             }
 
             item { SettingsHeader("Downloads") }

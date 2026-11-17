@@ -50,6 +50,8 @@ import tube.three06.player.PlayerController
 
 enum class SwipeKind { BRIGHTNESS, VOLUME, SEEK }
 
+private val SWIPE_TOP_DEAD_ZONE = 48.dp
+
 data class SwipeIndicator(
     val kind: SwipeKind,
     val label: String,
@@ -220,12 +222,18 @@ fun rememberPlayerSwipe(controller: PlayerController): PlayerSwipe {
 fun Modifier.playerSwipe(swipe: PlayerSwipe, enabled: Boolean): Modifier =
     pointerInput(swipe, enabled) {
         if (!enabled) return@pointerInput
+        // A drag starting at the top edge is the user pulling down the status bar.
+        val deadZone = SWIPE_TOP_DEAD_ZONE.toPx()
+        var ignored = false
         detectDragGestures(
-            onDragStart = { swipe.begin() },
-            onDragEnd = { swipe.end() },
-            onDragCancel = { swipe.end() },
+            onDragStart = { start ->
+                ignored = start.y < deadZone
+                if (!ignored) swipe.begin()
+            },
+            onDragEnd = { if (!ignored) swipe.end() },
+            onDragCancel = { if (!ignored) swipe.end() },
         ) { change, amount ->
-            if (swipe.drag(change.position, amount, size)) change.consume()
+            if (!ignored && swipe.drag(change.position, amount, size)) change.consume()
         }
     }
 
