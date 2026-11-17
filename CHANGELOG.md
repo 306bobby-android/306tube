@@ -2,6 +2,12 @@
 
 Newest first. The release workflow copies the section matching the tag into the GitHub release, so heading has to be exact tag: `## 1.0.0`.
 
+## Unreleased
+
+- Android TV: shows up on the TV home screen, same APK as the phone
+- TV layout with a side rail, 4-column feeds and a focus highlight for the remote
+- TV player opens fullscreen. Left/right seek 10 seconds, OK brings up the controls, Back returns to browsing with the video in the mini player.
+
 ## 1.0.0
 
 - First official release

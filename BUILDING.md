@@ -18,7 +18,7 @@ sdk.dir=/path/to/Android/Sdk
 ./gradlew :app:assembleDebug
 ```
 
-APK lands in `app/build/outputs/apk/debug/`.
+APK lands in `app/build/outputs/apk/debug/`. Debug builds also carry x86_64 so they run on emulators, including the Android TV image.
 
 ## Release
 
