@@ -56,7 +56,8 @@ fun List<Item>.hidingShorts(): List<Item> {
     val settings by LocalGraph.current.settings.state.collectAsStateWithLifecycle()
     val hide = settings.hideShorts
     return remember(this, hide) {
-        if (hide) filterNot { it is Shelf && it.kind == ShelfKind.SHORTS } else this
+        // Shorts also turn up loose in a feed, outside any shelf.
+        if (hide) filterNot { (it is Shelf && it.kind == ShelfKind.SHORTS) || (it is Video && it.isShort) } else this
     }
 }
 

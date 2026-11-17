@@ -18,7 +18,7 @@ Status: 1.0-RC1. Daily-drivable, expect the odd rough edge.
 - Home, Subscriptions, search, channels, playlists
 - Signed out, Home is built on-device from your local history and subscriptions. Nothing leaves the phone. Turn it off and you get Trending instead.
 - Feeds only reload when you pull to refresh. After 30 minutes a bar at the bottom offers a refresh so you know it's stale.
-- Shorts shelves are hidden by default (Settings → Appearance)
+- Shorts are hidden by default (Settings → Appearance)
 - Hide the Home tab entirely if you only care about Subscriptions
 
 **Library**
