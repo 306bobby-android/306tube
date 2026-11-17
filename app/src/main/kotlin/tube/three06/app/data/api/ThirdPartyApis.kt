@@ -55,7 +55,11 @@ class SponsorBlockApi(private val http: OkHttpClient) {
     }
 }
 
-data class Branding(val title: String?, val thumbnailUrl: String?)
+data class Branding(
+    val title: String?,
+    val thumbnailUrl: String?,
+    val thumbnailFallbacks: List<String> = emptyList(),
+)
 
 class DeArrowApi(private val http: OkHttpClient) {
     suspend fun branding(videoId: String): Branding? {

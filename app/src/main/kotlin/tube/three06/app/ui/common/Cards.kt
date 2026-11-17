@@ -30,6 +30,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,17 +61,20 @@ fun Thumb(
     isLive: Boolean = false,
     progressPercent: Int? = null,
     shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+    fallbacks: List<String> = emptyList(),
 ) {
+    var failed by remember(url, fallbacks) { mutableIntStateOf(0) }
     Box(
         modifier
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         AsyncImage(
-            model = url,
+            model = if (failed == 0) url else fallbacks.getOrNull(failed - 1),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
+            onError = { if (failed < fallbacks.size) failed++ },
         )
         val label = when {
             isLive -> "LIVE"
@@ -146,6 +153,7 @@ fun VideoCard(
             video.isLive,
             progressPercent,
             RoundedCornerShape(0.dp),
+            fallbacks = branding.thumbnailFallbacks(video),
         )
         Row(
             Modifier.padding(start = if (tv) 8.dp else 12.dp, top = 10.dp, end = if (tv) 8.dp else 4.dp),
@@ -219,6 +227,7 @@ fun VideoRow(
             video.isLive,
             progressPercent,
             RoundedCornerShape(8.dp),
+            fallbacks = branding.thumbnailFallbacks(video),
         )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -263,6 +272,7 @@ fun CompactVideoCard(video: Video, onClick: () -> Unit, modifier: Modifier = Mod
             video.durationSeconds,
             video.isLive,
             video.progressPercent,
+            fallbacks = branding.thumbnailFallbacks(video),
         )
         BrandedTitle(
             branding?.title ?: video.title,

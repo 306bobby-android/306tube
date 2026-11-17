@@ -28,9 +28,8 @@ fun rememberBranding(video: Video): Branding? {
     val randomFrame = enabled && settings.deArrowRandomThumbnail
     val branding by produceState<Branding?>(null, video.id, enabled, randomFrame) {
         val base = if (enabled) graph.deArrowCache.branding(video.id) else null
-        val duration = video.durationSeconds ?: 0L
-        value = if (randomFrame && base?.thumbnailUrl == null && duration > 0 && !video.isLive) {
-            Branding(base?.title, randomFrameUrl(video.id, duration))
+        value = if (randomFrame && base?.thumbnailUrl == null && !video.isLive && !video.isUpcoming) {
+            Branding(base?.title, randomFrameUrl(video.id, "hq720_"), listOf(randomFrameUrl(video.id, "hq")))
         } else {
             base
         }
@@ -38,11 +37,17 @@ fun rememberBranding(video: Video): Branding? {
     return branding
 }
 
-fun randomFrameUrl(videoId: String, durationSeconds: Long): String {
-    val fraction = (videoId.hashCode().toLong() and 0xFFFF) / 65536.0 * 0.8 + 0.1
-    val time = (durationSeconds * fraction).toInt()
-    return "https://dearrow-thumb.ajay.app/api/v1/getThumbnail?videoID=$videoId&time=$time&generateNow=true"
+// DeArrow's thumbnail server only serves timestamps someone voted on, so random frames come from
+// the three stills YouTube captures per video (about 25/50/75% in). hq720_N is missing on older
+// uploads, hqN always exists.
+fun randomFrameUrl(videoId: String, size: String): String {
+    val frame = 1 + videoId.hashCode().mod(3)
+    return "https://i.ytimg.com/vi/$videoId/$size$frame.jpg"
 }
+
+/** What a card should try, in order, when the branded thumbnail fails to load. */
+fun Branding?.thumbnailFallbacks(video: Video): List<String> =
+    if (this?.thumbnailUrl == null) emptyList() else thumbnailFallbacks + listOfNotNull(video.thumbnailUrl)
 
 @Composable
 fun BrandedTitle(

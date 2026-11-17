@@ -240,7 +240,7 @@ fun SettingsScreen() {
                 ) { update { s -> s.copy(deArrow = it) } }
                 SwitchRow(
                     "Random frame thumbnails",
-                    "When DeArrow has no thumbnail, show a frame from a random point in the video",
+                    "When DeArrow has no thumbnail, show a frame from the video instead of the uploader's",
                     settings.deArrowRandomThumbnail,
                     enabled = settings.deArrow,
                 ) { update { s -> s.copy(deArrowRandomThumbnail = it) } }
