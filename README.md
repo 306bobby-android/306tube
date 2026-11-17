@@ -44,7 +44,9 @@ Watch history sync to YouTube is on by default once you're signed in. Kill it in
 
 Android 8.0+ on arm64 or 32-bit ARM.
 
-No prebuilt APKs published yet. Build it yourself: see [BUILDING.md](BUILDING.md).
+Grab the latest APK from [Releases](https://github.com/306bobby-android/306tube/releases) and open it. Or build it yourself: see [BUILDING.md](BUILDING.md).
+
+What changed between versions is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Good to know
 

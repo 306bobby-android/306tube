@@ -16,8 +16,9 @@ android {
         applicationId = "com.the306bobby.three06tube"
         minSdk = 26
         targetSdk = 34
-        versionCode = 23
-        versionName = "1.0-RC1"
+        // CI passes -PversionCode/-PversionName from the release tag
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 23
+        versionName = (findProperty("versionName") as String?) ?: "1.0-RC1"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
