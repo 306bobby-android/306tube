@@ -29,6 +29,7 @@ import tube.three06.app.data.db.AppDatabase
 import tube.three06.app.data.ytdlp.CompositeStreamResolver
 import tube.three06.app.data.ytdlp.YtDlp
 import tube.three06.app.data.ytdlp.YtDlpStreamResolver
+import tube.three06.app.ui.common.isTelevision
 import tube.three06.app.ui.watch.PlayerOverlayState
 import tube.three06.cast.CastManager
 import tube.three06.cast.LoungeCastManager
@@ -46,6 +47,7 @@ import java.util.concurrent.TimeUnit
 
 class AppGraph private constructor(val context: Context) {
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val isTv: Boolean = context.isTelevision()
 
     val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)

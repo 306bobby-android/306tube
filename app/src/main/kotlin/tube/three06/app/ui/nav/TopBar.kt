@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import tube.three06.app.ui.common.Avatar
 import tube.three06.app.ui.common.LocalGraph
+import tube.three06.app.ui.common.LocalIsTv
 import tube.three06.app.ui.common.LocalNavigator
 
 interface ShellActions {
@@ -51,8 +52,10 @@ fun TubeTopBar(
         },
         actions = {
             actions()
-            IconButton(onClick = { shell.openCast() }) {
-                Icon(if (shell.casting) Icons.Default.CastConnected else Icons.Default.Cast, "Cast")
+            if (!LocalIsTv.current) {
+                IconButton(onClick = { shell.openCast() }) {
+                    Icon(if (shell.casting) Icons.Default.CastConnected else Icons.Default.Cast, "Cast")
+                }
             }
             if (showSearch) IconButton(onClick = { navigator.openSearch() }) { Icon(Icons.Default.Search, "Search") }
             IconButton(onClick = { navigator.openSettings() }) { Icon(Icons.Default.Settings, "Settings") }

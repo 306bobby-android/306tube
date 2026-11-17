@@ -28,6 +28,9 @@ import kotlinx.coroutines.launch
 import tube.three06.app.di.AppGraph
 import tube.three06.app.ui.common.FEED_STALE_AFTER_MILLIS
 import tube.three06.app.ui.common.ItemView
+import tube.three06.app.ui.common.LocalIsTv
+import tube.three06.app.ui.common.TV_FEED_COLUMNS
+import tube.three06.app.ui.common.feedItems
 import tube.three06.app.ui.common.Paged
 import tube.three06.app.ui.common.PagedColumn
 import tube.three06.app.ui.common.graphViewModel
@@ -116,6 +119,7 @@ fun HomeScreen() {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val onItemClick = rememberItemClick(WatchEvent.Source.HOME)
     val reasonOf = remember(vm) { vm::reasonOf }
+    val columns = if (LocalIsTv.current) TV_FEED_COLUMNS else 1
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -131,7 +135,7 @@ fun HomeScreen() {
             staleAfterMillis = FEED_STALE_AFTER_MILLIS,
             emptyMessage = "Watch or search for something and recommendations will show up here.",
         ) {
-            items(items, key = { itemKey(it) }) { item ->
+            feedItems(items, columns) { item ->
                 ItemView(item, onItemClick, progress, reasonOf)
             }
         }

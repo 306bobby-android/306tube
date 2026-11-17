@@ -129,6 +129,8 @@ fun VideoCard(
 ) {
     val menu = LocalVideoMenu.current
     val branding = rememberBranding(video)
+    // Grid cells on TV are too narrow for the avatar and overflow button; long-press opens the menu.
+    val tv = LocalIsTv.current
     Column(
         modifier
             .fillMaxWidth()
@@ -146,10 +148,10 @@ fun VideoCard(
             RoundedCornerShape(0.dp),
         )
         Row(
-            Modifier.padding(start = 12.dp, top = 10.dp, end = 4.dp),
+            Modifier.padding(start = if (tv) 8.dp else 12.dp, top = 10.dp, end = if (tv) 8.dp else 4.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            video.channel?.let { channel ->
+            if (!tv) video.channel?.let { channel ->
                 Avatar(
                     channel.avatarUrl,
                     36.dp,
@@ -161,7 +163,7 @@ fun VideoCard(
                 BrandedTitle(
                     branding?.title ?: video.title,
                     branding?.title != null,
-                    MaterialTheme.typography.bodyLarge,
+                    if (tv) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
                 )
                 Text(
                     video.metaLine(),
@@ -179,8 +181,10 @@ fun VideoCard(
                     )
                 }
             }
-            IconButton(onClick = { menu(video) }) {
-                Icon(Icons.Default.MoreVert, "More")
+            if (!tv) {
+                IconButton(onClick = { menu(video) }) {
+                    Icon(Icons.Default.MoreVert, "More")
+                }
             }
         }
     }

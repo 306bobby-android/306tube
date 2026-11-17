@@ -59,6 +59,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import tube.three06.app.di.AppGraph
 import tube.three06.app.ui.common.ItemView
+import tube.three06.app.ui.common.LocalIsTv
+import tube.three06.app.ui.common.TV_FEED_COLUMNS
+import tube.three06.app.ui.common.feedItems
 import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.common.Paged
 import tube.three06.app.ui.common.PagedColumn
@@ -123,6 +126,7 @@ class SearchViewModel(private val graph: AppGraph, initialQuery: String?) : View
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(initialQuery: String?) {
+    val columns = if (LocalIsTv.current) TV_FEED_COLUMNS else 1
     val vm = graphViewModel(key = "search:${initialQuery ?: ""}") { SearchViewModel(it, initialQuery) }
     val query by vm.query.collectAsStateWithLifecycle()
     val submitted by vm.submitted.collectAsStateWithLifecycle()
@@ -215,7 +219,7 @@ fun SearchScreen(initialQuery: String?) {
                     emptyTitle = "No results",
                     emptyMessage = "Try different words or filters.",
                 ) {
-                    items(resultItems, key = { itemKey(it) }) { item ->
+                    feedItems(resultItems, columns) { item ->
                         ItemView(item, onItemClick)
                     }
                 }

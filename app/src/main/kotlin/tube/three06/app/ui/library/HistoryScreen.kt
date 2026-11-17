@@ -28,6 +28,9 @@ import kotlinx.coroutines.launch
 import tube.three06.app.di.AppGraph
 import tube.three06.app.ui.common.EmptyBox
 import tube.three06.app.ui.common.ItemView
+import tube.three06.app.ui.common.LocalIsTv
+import tube.three06.app.ui.common.TV_FEED_COLUMNS
+import tube.three06.app.ui.common.feedItems
 import tube.three06.app.ui.common.LocalPlay
 import tube.three06.app.ui.common.Paged
 import tube.three06.app.ui.common.PagedColumn
@@ -65,6 +68,7 @@ class HistoryViewModel(private val graph: AppGraph) : ViewModel() {
 
 @Composable
 fun HistoryScreen() {
+    val columns = if (LocalIsTv.current) TV_FEED_COLUMNS else 1
     val vm = graphViewModel { HistoryViewModel(it) }
     val play = LocalPlay.current
     var confirmClear by remember { mutableStateOf(false) }
@@ -99,7 +103,7 @@ fun HistoryScreen() {
                 modifier = Modifier.fillMaxSize().padding(padding),
                 emptyTitle = "No history",
             ) {
-                items(state.items, key = { itemKey(it) }) { ItemView(it, onClick) }
+                feedItems(state.items, columns) { ItemView(it, onClick) }
             }
         } else {
             val entries by vm.local.collectAsStateWithLifecycle()
