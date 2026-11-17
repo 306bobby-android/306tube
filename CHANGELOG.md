@@ -1,11 +1,13 @@
 # Changelog
 
-Newest first. The release workflow copies the section matching the tag into the GitHub release, so the heading has to be the exact tag: `## 1.0.0`.
+Newest first. The release workflow copies the section matching the tag into the GitHub release, so heading has to be exact tag: `## 1.0.0`.
 
-## Unreleased
+## 1.0.0
 
+- First official release
 - Home and Subscriptions show a bar with a Refresh button once the feed is 30 minutes old
 - New setting to hide Shorts shelves from Home, Subscriptions, search and related videos. On by default.
+- Will need re-installed if running early versions, as new keys and package name are used
 
 ## 1.0-RC1
 
