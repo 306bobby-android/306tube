@@ -31,6 +31,7 @@ data class Video(
     val isShort: Boolean = false,
     val descriptionSnippet: String? = null,
     val progressPercent: Int? = null,
+    val resumeSeconds: Long? = null,
     val badges: List<String> = emptyList(),
 ) : Item
 

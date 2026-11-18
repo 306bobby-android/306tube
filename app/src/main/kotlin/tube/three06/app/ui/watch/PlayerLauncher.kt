@@ -24,11 +24,8 @@ class PlayerLauncher(
         scope.launch {
             val settings = graph.settings.current
             graph.playbackObserver.currentSource = source
-            val local = graph.history.resumePosition(video.id)
-            val remote = video.progressPercent?.takeIf { it in 3 until 98 }?.let { percent ->
-                video.durationSeconds?.let { it * 1000 * percent / 100 }
-            }
-            val resume = local ?: remote
+            graph.playbackObserver.explicitStart = startMs != null
+            val resume = graph.playbackObserver.resumePosition(video, graph.history.resumePosition(video.id))
             val start = startMs ?: if (resume != null && settings.resume == ResumeMode.ALWAYS) resume else 0L
             graph.overlay.resumeOffer.value = resume?.takeIf { startMs == null && settings.resume == ResumeMode.ASK }
             applyQualityForNetwork()

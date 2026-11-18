@@ -98,10 +98,17 @@ interface YouTube {
 
     suspend fun removeFromHistory(videoId: String)
 
+    /**
+     * [first] opens the history entry; later calls report [fromMs]..[positionMs] as watched and
+     * move the resume point. [final] closes the session.
+     */
     suspend fun reportPlayback(
         tracking: PlaybackTracking,
-        positionSeconds: Long,
+        fromMs: Long,
+        positionMs: Long,
         lengthSeconds: Long?,
         cpn: String,
+        first: Boolean,
+        final: Boolean,
     )
 }

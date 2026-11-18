@@ -78,6 +78,7 @@ import tube.three06.innertube.model.VideoDetails
 import java.io.IOException
 import java.net.URLEncoder
 import java.util.Collections
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class InnerTubeClient(
@@ -843,30 +844,38 @@ class InnerTubeClient(
 
     override suspend fun reportPlayback(
         tracking: PlaybackTracking,
-        positionSeconds: Long,
+        fromMs: Long,
+        positionMs: Long,
         lengthSeconds: Long?,
         cpn: String,
+        first: Boolean,
+        final: Boolean,
     ) {
         ensureBootstrapped()
         val creds = session.current
+        fun seconds(ms: Long) = String.format(Locale.ROOT, "%.3f", ms / 1000.0)
 
         suspend fun ping(base: String?, watchtime: Boolean) {
             val url = base?.toHttpUrlOrNull()?.newBuilder() ?: return
             url.setQueryParameter("ver", "2")
             url.setQueryParameter("cpn", cpn)
-            url.setQueryParameter("cmt", positionSeconds.toString())
+            url.setQueryParameter("cmt", seconds(positionMs))
             url.setQueryParameter("el", "detailpage")
+            url.setQueryParameter("c", Clients.WEB.clientName)
+            url.setQueryParameter("cver", Clients.WEB.clientVersion)
             lengthSeconds?.let { url.setQueryParameter("len", it.toString()) }
             if (watchtime) {
-                url.setQueryParameter("st", "0")
-                url.setQueryParameter("et", positionSeconds.toString())
+                url.setQueryParameter("st", seconds(fromMs))
+                url.setQueryParameter("et", seconds(positionMs))
+                url.setQueryParameter("state", if (final) "paused" else "playing")
+                if (final) url.setQueryParameter("final", "1")
             }
             val res = http.execute(Request.Builder().url(url.build()).applyHeaders(Clients.WEB, creds).build())
             if (res.code == 401 || res.code == 403) throw LoginRequiredException("videostats: HTTP ${res.code}")
             if (res.code >= 400) throw ApiException(res.code, null, "videostats: HTTP ${res.code}")
         }
 
-        ping(tracking.videostatsPlaybackUrl, false)
+        if (first) ping(tracking.videostatsPlaybackUrl, false)
         ping(tracking.videostatsWatchtimeUrl, true)
     }
 

@@ -282,6 +282,7 @@ private fun parseVideoRenderer(r: JsonElement): Video? {
         progressPercent = overlays.firstNotNullOfOrNull {
             it["thumbnailOverlayResumePlaybackRenderer"]["percentDurationWatched"].int
         },
+        resumeSeconds = r["navigationEndpoint"]["watchEndpoint"]["startTimeSeconds"].long,
         badges = r["badges"].list.mapNotNull { it["metadataBadgeRenderer"]["label"].str },
     )
 }
@@ -403,6 +404,7 @@ private fun parseLockup(r: JsonElement): Item? {
             isUpcoming = partText { it.startsWith("Scheduled") || it.startsWith("Premieres") } != null,
             isShort = r["rendererContext"].findFirst("reelWatchEndpoint") != null,
             progressPercent = image.findFirst("thumbnailOverlayProgressBarViewModel")["startPercent"].int,
+            resumeSeconds = r["rendererContext"].findFirst("watchEndpoint")["startTimeSeconds"].long,
         )
 
         type.contains("PLAYLIST") || type.contains("PODCAST") || type.contains("ALBUM") ||
