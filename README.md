@@ -54,6 +54,7 @@ After that the app updates itself: it checks GitHub once a day and offers to ins
 - **Playback broke?** YouTube changes things constantly. Switch Settings → Playback → Stream source between the NewPipe extractor and yt-dlp. One of them is usually working.
 - **Downloads** use yt-dlp. First download runs a one-time setup; update it from Settings → Downloads when downloads start failing.
 - **Third-party services** (SponsorBlock, DeArrow, Return YouTube Dislike) each get the video ID you're watching. All three can be turned off.
+- **Update checks** ask GitHub for the latest release once a day. GitHub sees your IP address and nothing else. Turn it off under Settings → About.
 
 ## Credits
 
