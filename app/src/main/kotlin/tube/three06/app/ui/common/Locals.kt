@@ -65,15 +65,19 @@ fun List<Item>.hidingShorts(): List<Item> {
 /** For suggestion feeds: drops videos already watched most of the way, and auto-generated mixes. */
 @Composable
 fun List<Item>.hidingWatchedAndMixes(): List<Item> {
-    val history = LocalGraph.current.history
-    val watched by remember(history) { history.watchedIds }.collectAsStateWithLifecycle(emptySet())
-    return remember(this, watched) {
+    val graph = LocalGraph.current
+    val settings by graph.settings.state.collectAsStateWithLifecycle()
+    val watched by remember(graph) { graph.history.watchedIds }.collectAsStateWithLifecycle(emptySet())
+    val hideWatched = settings.hideWatched
+    val hideMixes = settings.hideMixes
+    return remember(this, watched, hideWatched, hideMixes) {
         filterNot {
             when (it) {
-                is Video -> it.id in watched || (it.progressPercent ?: 0) >= WATCHED_FRACTION * 100
+                is Video -> hideWatched &&
+                    (it.id in watched || (it.progressPercent ?: 0) >= WATCHED_FRACTION * 100)
                 // mix ids are RD plus the seed video
-                is Playlist -> it.id.startsWith("RD")
-                is Shelf -> it.kind == ShelfKind.MIX
+                is Playlist -> hideMixes && it.id.startsWith("RD")
+                is Shelf -> hideMixes && it.kind == ShelfKind.MIX
                 else -> false
             }
         }

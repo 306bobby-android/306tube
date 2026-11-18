@@ -13,7 +13,7 @@ Newest first. The release workflow copies the section matching the tag into the 
 - Added dead-zone near top of player for swipe controls, allows viewing of status bar
 - Added in-app updater
 - Fixed watch history sync to YouTube, and resume from YouTube's position
-- Home and related videos hide videos watched past 80% and music Mixes
+- New settings to hide videos watched past 80% and Mixes from Home and related videos. On by default.
 - Cast: phone shows the TV queue instead of a remote pad
 
 ## 1.0.0

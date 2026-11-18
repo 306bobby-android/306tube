@@ -163,6 +163,8 @@ fun SettingsScreen() {
                 SwitchRow("Dynamic color", "Use wallpaper colors on Android 12+", settings.dynamicColor) { update { s -> s.copy(dynamicColor = it) } }
                 SwitchRow("Home tab", "Off hides the Home feed and starts the app on Subscriptions", settings.showHome) { update { s -> s.copy(showHome = it) } }
                 SwitchRow("Hide Shorts", "Remove Shorts from Home, Subscriptions, search and related videos", settings.hideShorts) { update { s -> s.copy(hideShorts = it) } }
+                SwitchRow("Hide watched videos", "Remove videos watched past 80% from Home and related videos", settings.hideWatched) { update { s -> s.copy(hideWatched = it) } }
+                SwitchRow("Hide Mixes", "Remove auto-generated Mix playlists from Home and related videos", settings.hideMixes) { update { s -> s.copy(hideMixes = it) } }
             }
 
             item { SettingsHeader("Playback") }
