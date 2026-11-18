@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.NotInterested
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -57,7 +58,7 @@ fun shareVideo(context: Context, video: Video) {
 }
 
 @Composable
-fun VideoMenuSheet(video: Video, onDismiss: () -> Unit) {
+fun VideoMenuSheet(video: Video, onAddToTvQueue: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val graph = LocalGraph.current
     val context = LocalContext.current
     val message = LocalMessages.current
@@ -127,6 +128,12 @@ fun VideoMenuSheet(video: Video, onDismiss: () -> Unit) {
             graph.player.enqueue(video)
             message("Added to queue")
             onDismiss()
+        }
+        if (onAddToTvQueue != null) {
+            MenuRow(Icons.Default.Tv, "Add to TV queue") {
+                onAddToTvQueue()
+                onDismiss()
+            }
         }
         if (signedIn) {
             MenuRow(Icons.Default.WatchLater, "Save to Watch later") {

@@ -21,10 +21,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 import tube.three06.app.di.AppGraph
 import tube.three06.app.ui.common.describe
 import tube.three06.cast.DialDevice
-import tube.three06.cast.DpadKey
 import tube.three06.cast.LoungeSession
 import tube.three06.cast.RemoteState
 import tube.three06.cast.Screen
+import tube.three06.innertube.model.Video
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CastViewModel(private val graph: AppGraph) : ViewModel() {
@@ -49,6 +49,9 @@ class CastViewModel(private val graph: AppGraph) : ViewModel() {
 
     init {
         refreshKnown()
+        viewModelScope.launch {
+            remoteState.collect { state -> (state.queueVideoIds + listOfNotNull(state.videoId)).forEach(::resolve) }
+        }
     }
 
     fun refreshKnown() = viewModelScope.launch {
@@ -113,16 +116,73 @@ class CastViewModel(private val graph: AppGraph) : ViewModel() {
         refreshKnown()
     }
 
-    fun playOnTv() = run("Could not start playback on the TV") {
+    /** Details for ids the TV reports; the lounge protocol only ever carries the ids. */
+    val videos = MutableStateFlow<Map<String, Video>>(emptyMap())
+    private val resolving = HashSet<String>()
+
+    private fun remember(video: Video) = videos.update { it + (video.id to video) }
+
+    private fun resolve(id: String) {
+        if (id in videos.value || !resolving.add(id)) return
+        viewModelScope.launch {
+            val details = withContext(Dispatchers.IO) { runCatching { graph.youTube.video(id) }.getOrNull() }
+            resolving.remove(id)
+            if (details != null) {
+                remember(
+                    Video(
+                        id = details.id,
+                        title = details.title,
+                        channel = details.channel,
+                        thumbnails = details.thumbnails,
+                        durationSeconds = details.lengthSeconds,
+                        isLive = details.isLive,
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Plays [video] on the TV now, slotted in after whatever is playing so the queue survives. */
+    fun playNow(video: Video, startSeconds: Long = 0) = run("Could not start playback on the TV") {
         val s = session.value ?: return@run
-        val queue = graph.player.queue.value
-        val state = graph.player.state.value
-        val ids = queue.items.map { it.id }.ifEmpty { listOfNotNull(state.current?.id) }
-        if (ids.isEmpty()) {
-            error.value = "Nothing is playing"
+        remember(video)
+        val state = s.state.value
+        if (state.videoId == video.id) {
+            val ids = state.queueVideoIds.ifEmpty { listOf(video.id) }
+            s.setPlaylist(ids, ids.indexOf(video.id).coerceAtLeast(0), startSeconds)
             return@run
         }
-        s.setPlaylist(ids, queue.currentIndex.coerceAtLeast(0), state.positionMs / 1000)
+        val rest = state.queueVideoIds.filter { it != video.id }
+        val current = rest.indexOf(state.videoId)
+        val ids = rest.take(current + 1) + video.id + rest.drop(current + 1)
+        s.setPlaylist(ids, current + 1, startSeconds)
+    }
+
+    fun addToQueue(video: Video) = run("Could not add to the TV queue") {
+        val s = session.value ?: return@run
+        remember(video)
+        val state = s.state.value
+        // addVideo on an idle screen queues it without starting anything.
+        if (state.videoId == null && state.queueVideoIds.isEmpty()) {
+            s.setPlaylist(listOf(video.id))
+        } else {
+            s.addVideo(video.id)
+        }
+    }
+
+    fun removeFromQueue(videoId: String) = remote { removeVideo(videoId) }
+
+    fun jumpTo(videoId: String) = remote {
+        val ids = state.value.queueVideoIds
+        val index = ids.indexOf(videoId)
+        if (index >= 0) setPlaylist(ids, index)
+    }
+
+    /** Moves what this phone is playing over to the TV, at the same position. */
+    fun playLocalOnTv() {
+        val state = graph.player.state.value
+        val video = state.current ?: return
+        playNow(video, state.positionMs / 1000)
         graph.player.pause()
     }
 
@@ -130,8 +190,6 @@ class CastViewModel(private val graph: AppGraph) : ViewModel() {
         val s = session.value ?: return@launch
         runCatching { s.block() }.onFailure { error.value = it.describe() }
     }
-
-    fun dpad(key: DpadKey) = remote { dpad(key) }
 
     fun clearError() {
         error.value = null

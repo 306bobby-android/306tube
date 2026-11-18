@@ -55,6 +55,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import tube.three06.app.di.AppGraph
+import tube.three06.app.ui.cast.CastChoiceSheet
 import tube.three06.app.ui.cast.CastSheet
 import tube.three06.app.ui.cast.CastViewModel
 import tube.three06.app.ui.channel.ChannelScreen
@@ -67,6 +68,7 @@ import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.common.LocalPlay
 import tube.three06.app.ui.common.LocalVideoMenu
 import tube.three06.app.ui.common.Navigator
+import tube.three06.app.ui.common.PlayAction
 import tube.three06.app.ui.common.VideoMenuSheet
 import tube.three06.app.ui.common.describe
 import tube.three06.app.ui.home.HomeScreen
@@ -134,6 +136,19 @@ private fun Shell(
     var menuVideo by remember { mutableStateOf<Video?>(null) }
     var accountsSheet by remember { mutableStateOf(false) }
     var castSheet by remember { mutableStateOf(false) }
+    var castChoice by remember { mutableStateOf<CastChoice?>(null) }
+    // While a TV is connected, picking a video asks where it should go.
+    val play = remember(launcher, castVm) {
+        object : PlayAction {
+            override fun play(video: Video, queue: List<Video>, source: WatchEvent.Source) {
+                if (castVm.connected.value) {
+                    castChoice = CastChoice(video, queue, source)
+                } else {
+                    launcher.play(video, queue, source)
+                }
+            }
+        }
+    }
     val castConnected by castVm.connected.collectAsStateWithLifecycle()
     val inPip by graph.overlay.inPip.collectAsStateWithLifecycle()
     val fullscreen by graph.overlay.fullscreen.collectAsStateWithLifecycle()
@@ -185,7 +200,7 @@ private fun Shell(
 
     CompositionLocalProvider(
         LocalNavigator provides navigator,
-        LocalPlay provides launcher,
+        LocalPlay provides play,
         LocalVideoMenu provides { menuVideo = it },
         LocalMessages provides message,
         LocalShell provides shell,
@@ -270,7 +285,29 @@ private fun Shell(
             PlayerOverlay(watchVm, if (showBars && !isTv) navBarHeight else 0, onEnterPip)
         }
 
-        menuVideo?.let { video -> VideoMenuSheet(video) { menuVideo = null } }
+        menuVideo?.let { video ->
+            val addToTv: (() -> Unit)? = if (castConnected) {
+                {
+                    castVm.addToQueue(video)
+                    message("Added to TV queue")
+                }
+            } else {
+                null
+            }
+            VideoMenuSheet(video, addToTv) { menuVideo = null }
+        }
+        castChoice?.let { choice ->
+            CastChoiceSheet(
+                choice.video,
+                onTv = { castVm.playNow(choice.video) },
+                onQueue = {
+                    castVm.addToQueue(choice.video)
+                    message("Added to TV queue")
+                },
+                onLocal = { launcher.play(choice.video, choice.queue, choice.source) },
+                onDismiss = { castChoice = null },
+            )
+        }
         if (accountsSheet) AccountsSheet { accountsSheet = false }
         if (castSheet) CastSheet(castVm) { castSheet = false }
         UpdateDialog(graph.updater)
@@ -278,6 +315,8 @@ private fun Shell(
 }
 
 private val Int.dp: Dp get() = Dp(toFloat())
+
+private class CastChoice(val video: Video, val queue: List<Video>, val source: WatchEvent.Source)
 
 @Composable
 private fun AppNavHost(navController: NavHostController, startDestination: String, modifier: Modifier) {

@@ -10,18 +10,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Tv
@@ -47,12 +46,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import tube.three06.app.ui.common.LocalGraph
+import tube.three06.app.ui.common.Thumb
 import tube.three06.app.ui.common.TubeSheet
+import tube.three06.app.ui.common.VideoRow
 import tube.three06.app.ui.common.formatDuration
-import tube.three06.cast.DpadKey
+import tube.three06.app.ui.common.thumbnailUrl
 import tube.three06.cast.RemoteState
+import tube.three06.innertube.model.ChannelRef
+import tube.three06.innertube.model.Video
 
 @Composable
 fun CastSheet(vm: CastViewModel, onDismiss: () -> Unit) {
@@ -66,7 +71,7 @@ fun CastSheet(vm: CastViewModel, onDismiss: () -> Unit) {
     var code by remember { mutableStateOf("") }
 
     TubeSheet(onDismiss) {
-        Column(Modifier.padding(bottom = 32.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 32.dp)) {
             if (error != null) {
                 Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -172,6 +177,8 @@ fun CastSheet(vm: CastViewModel, onDismiss: () -> Unit) {
 private fun RemoteControl(vm: CastViewModel, screenName: String) {
     val state by vm.remoteState.collectAsStateWithLifecycle()
     val connected by vm.connected.collectAsStateWithLifecycle()
+    val videos by vm.videos.collectAsStateWithLifecycle()
+    val local by LocalGraph.current.player.state.collectAsStateWithLifecycle()
     var seeking by remember { mutableStateOf<Float?>(null) }
 
     Column(Modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -193,9 +200,33 @@ private fun RemoteControl(vm: CastViewModel, screenName: String) {
             TextButton(vm::disconnect) { Text("Disconnect") }
         }
 
-        Button(vm::playOnTv, Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            Icon(Icons.Default.PlayArrow, null)
-            Text("Play on TV")
+        val playingId = state.videoId
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (playingId == null) {
+                Text(
+                    "Nothing is playing on the TV",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                val playing = videos[playingId]
+                Thumb(playing?.thumbnailUrl, Modifier.width(112.dp).height(63.dp), shape = RoundedCornerShape(8.dp))
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        playing?.title ?: "Loading…",
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 2,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        playing?.channel?.name.orEmpty(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
         }
 
         val duration = state.durationSeconds.takeIf { it > 0 } ?: 1.0
@@ -244,18 +275,84 @@ private fun RemoteControl(vm: CastViewModel, screenName: String) {
             )
         }
 
-        Spacer(Modifier.height(8.dp))
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            IconButton({ vm.dpad(DpadKey.UP) }) { Icon(Icons.Default.KeyboardArrowUp, "Up") }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton({ vm.dpad(DpadKey.LEFT) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Left") }
-                FilledIconButton({ vm.dpad(DpadKey.ENTER) }) { Icon(Icons.Default.RadioButtonChecked, "Enter") }
-                IconButton({ vm.dpad(DpadKey.RIGHT) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Right") }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton({ vm.dpad(DpadKey.DOWN) }) { Icon(Icons.Default.KeyboardArrowDown, "Down") }
-                IconButton({ vm.dpad(DpadKey.BACK) }) { Icon(Icons.AutoMirrored.Filled.KeyboardReturn, "Back") }
+        // Only when this phone has something else loaded than what the TV is showing.
+        val here = local.current
+        if (here != null && here.id != playingId) {
+            Text(
+                "On this phone: ${here.title}",
+                Modifier.fillMaxWidth().padding(top = 12.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(vm::playLocalOnTv, Modifier.weight(1f)) { Text("Play this video on TV", maxLines = 1) }
+                OutlinedButton({ vm.addToQueue(here) }, Modifier.weight(1f)) { Text("Add to TV queue", maxLines = 1) }
             }
         }
+
+        Text(
+            "TV queue",
+            Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        if (state.queueVideoIds.isEmpty()) {
+            Text(
+                "Nothing queued",
+                Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+    state.queueVideoIds.forEach { id ->
+        VideoRow(
+            videos[id] ?: Video(id, "Loading…", ChannelRef(null, "")),
+            onClick = { vm.jumpTo(id) },
+            highlighted = id == state.videoId,
+            trailing = {
+                IconButton({ vm.removeFromQueue(id) }) { Icon(Icons.Default.Clear, "Remove from TV queue") }
+            },
+        )
+    }
+}
+
+/** Asked when a video is picked while a TV is connected. */
+@Composable
+fun CastChoiceSheet(
+    video: Video,
+    onTv: () -> Unit,
+    onQueue: () -> Unit,
+    onLocal: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    TubeSheet(onDismiss) {
+        Text(
+            video.title,
+            Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            overflow = TextOverflow.Ellipsis,
+            maxLines = 2,
+            style = MaterialTheme.typography.titleSmall,
+        )
+        ListItem(
+            headlineContent = { Text("Watch now on TV") },
+            leadingContent = { Icon(Icons.Default.Tv, null) },
+            modifier = Modifier.clickable { onDismiss(); onTv() },
+        )
+        ListItem(
+            headlineContent = { Text("Add to TV queue") },
+            leadingContent = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null) },
+            modifier = Modifier.clickable { onDismiss(); onQueue() },
+        )
+        ListItem(
+            headlineContent = { Text("Play locally") },
+            leadingContent = { Icon(Icons.Default.PlayArrow, null) },
+            modifier = Modifier.clickable { onDismiss(); onLocal() },
+        )
+        Spacer(Modifier.height(24.dp))
     }
 }

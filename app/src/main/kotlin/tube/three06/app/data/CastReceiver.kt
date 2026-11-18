@@ -124,7 +124,13 @@ class CastReceiver(private val graph: AppGraph) {
             }
             is ReceiverCommand.UpdatePlaylist -> {
                 queueJob?.join()
-                val known = player.queue.value.items.map { it.id }.toSet()
+                val queue = player.queue.value
+                val wanted = command.videoIds.toSet()
+                // Back to front, so removing one doesn't shift the indices still to be checked.
+                for (i in queue.items.indices.reversed()) {
+                    if (i != queue.currentIndex && queue.items[i].id !in wanted) player.removeFromQueue(i)
+                }
+                val known = queue.items.map { it.id }.toSet()
                 command.videoIds.filter { it !in known }.forEach { player.enqueue(lookup(it)) }
             }
             is ReceiverCommand.SetAutoplay -> {
