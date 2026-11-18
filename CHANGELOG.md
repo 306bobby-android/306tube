@@ -12,6 +12,9 @@ Newest first. The release workflow copies the section matching the tag into the 
 - Hide Shorts now also removes Shorts that show up as single videos in a feed, not just the Shorts shelves
 - Added dead-zone near top of player for swipe controls, allows viewing of status bar
 - Added in-app updater
+- Fixed watch history sync to YouTube, and resume from YouTube's position
+- Home and related videos hide videos watched past 80% and music Mixes
+- Cast: phone shows the TV queue instead of a remote pad
 
 ## 1.0.0
 

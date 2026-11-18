@@ -19,6 +19,8 @@ data class WatchEntry(
         get() = if (durationMs > 0) (lastPositionMs * 100 / durationMs).toInt().coerceIn(0, 100) else 0
 }
 
+const val WATCHED_FRACTION = 0.8f
+
 class HistoryRepository(private val dao: WatchHistoryDao) {
 
     fun observeRecent(limit: Int = 200): Flow<List<WatchEntry>> =
@@ -34,6 +36,9 @@ class HistoryRepository(private val dao: WatchHistoryDao) {
         if (entry.durationMs > 0 && entry.lastPositionMs > entry.durationMs - 15_000) return null
         return entry.lastPositionMs
     }
+
+    /** Videos watched far enough that suggesting them again is noise. */
+    val watchedIds: Flow<Set<String>> = dao.observeWatchedIds(WATCHED_FRACTION).map { it.toSet() }
 
     fun observeProgress(ids: List<String>): Flow<Map<String, Int>> =
         dao.observeByIds(ids).map { list ->

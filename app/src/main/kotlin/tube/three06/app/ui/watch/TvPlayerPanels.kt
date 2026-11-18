@@ -54,6 +54,7 @@ import tube.three06.app.ui.common.LocalPlay
 import tube.three06.app.ui.common.focusHighlight
 import tube.three06.app.ui.common.formatCount
 import tube.three06.app.ui.common.hidingShorts
+import tube.three06.app.ui.common.hidingWatchedAndMixes
 import tube.three06.innertube.model.LikeStatus
 import tube.three06.innertube.model.Video
 import tube.three06.recommend.WatchEvent
@@ -112,7 +113,7 @@ fun TvPlayerActions(vm: WatchViewModel, onComments: () -> Unit, onMessage: (Stri
 @Composable
 fun TvRelatedTray(vm: WatchViewModel, focus: FocusRequester, onPicked: () -> Unit, modifier: Modifier = Modifier) {
     val related by vm.related.state.collectAsStateWithLifecycle()
-    val items = related.items.hidingShorts()
+    val items = related.items.hidingShorts().hidingWatchedAndMixes()
     val videos = remember(items) { items.filterIsInstance<Video>() }
     val play = LocalPlay.current
     LaunchedEffect(videos.isNotEmpty()) {

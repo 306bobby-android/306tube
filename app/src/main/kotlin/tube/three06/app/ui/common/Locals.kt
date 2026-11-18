@@ -7,6 +7,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import tube.three06.app.data.WATCHED_FRACTION
 import tube.three06.app.di.AppGraph
 import tube.three06.innertube.model.Channel
 import tube.three06.innertube.model.Item
@@ -58,6 +59,24 @@ fun List<Item>.hidingShorts(): List<Item> {
     return remember(this, hide) {
         // Shorts also turn up loose in a feed, outside any shelf.
         if (hide) filterNot { (it is Shelf && it.kind == ShelfKind.SHORTS) || (it is Video && it.isShort) } else this
+    }
+}
+
+/** For suggestion feeds: drops videos already watched most of the way, and auto-generated mixes. */
+@Composable
+fun List<Item>.hidingWatchedAndMixes(): List<Item> {
+    val history = LocalGraph.current.history
+    val watched by remember(history) { history.watchedIds }.collectAsStateWithLifecycle(emptySet())
+    return remember(this, watched) {
+        filterNot {
+            when (it) {
+                is Video -> it.id in watched || (it.progressPercent ?: 0) >= WATCHED_FRACTION * 100
+                // mix ids are RD plus the seed video
+                is Playlist -> it.id.startsWith("RD")
+                is Shelf -> it.kind == ShelfKind.MIX
+                else -> false
+            }
+        }
     }
 }
 

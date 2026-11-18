@@ -50,6 +50,9 @@ interface WatchHistoryDao {
     @Query("SELECT * FROM watch_history WHERE videoId = :videoId")
     suspend fun byId(videoId: String): WatchHistoryEntity?
 
+    @Query("SELECT videoId FROM watch_history WHERE watchedFraction >= :fraction")
+    fun observeWatchedIds(fraction: Float): Flow<List<String>>
+
     @Query("SELECT * FROM watch_history WHERE videoId IN (:ids)")
     fun observeByIds(ids: List<String>): Flow<List<WatchHistoryEntity>>
 

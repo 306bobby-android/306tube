@@ -35,6 +35,7 @@ import tube.three06.app.ui.common.Paged
 import tube.three06.app.ui.common.PagedColumn
 import tube.three06.app.ui.common.graphViewModel
 import tube.three06.app.ui.common.hidingShorts
+import tube.three06.app.ui.common.hidingWatchedAndMixes
 import tube.three06.app.ui.common.itemKey
 import tube.three06.app.ui.common.rememberItemClick
 import tube.three06.app.ui.nav.TubeTopBar
@@ -114,7 +115,7 @@ fun HomeScreen() {
     val vm = graphViewModel { HomeViewModel(it) }
     val state by vm.feed.state.collectAsStateWithLifecycle()
     val allItems by vm.items.collectAsStateWithLifecycle()
-    val items = allItems.hidingShorts()
+    val items = allItems.hidingShorts().hidingWatchedAndMixes()
     val progress by vm.progress.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val onItemClick = rememberItemClick(WatchEvent.Source.HOME)
