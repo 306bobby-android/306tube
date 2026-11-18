@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -81,6 +82,9 @@ data class Settings(
     val castScreenId: String? = null,
     val castReceiverId: String? = null,
     val castInBackground: Boolean = false,
+    val checkForUpdates: Boolean = true,
+    val lastUpdateCheck: Long = 0L,
+    val skippedUpdate: String? = null,
 )
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore("settings")
@@ -121,6 +125,9 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val castScreenId = stringPreferencesKey("cast_screen_id")
         val castReceiverId = stringPreferencesKey("cast_receiver_id")
         val castInBackground = booleanPreferencesKey("cast_in_background")
+        val checkForUpdates = booleanPreferencesKey("check_for_updates")
+        val lastUpdateCheck = longPreferencesKey("last_update_check")
+        val skippedUpdate = stringPreferencesKey("skipped_update")
     }
 
     val flow: Flow<Settings> = store.data.map { decode(it) }
@@ -161,6 +168,9 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             castScreenId = p[Keys.castScreenId],
             castReceiverId = p[Keys.castReceiverId],
             castInBackground = p[Keys.castInBackground] ?: d.castInBackground,
+            checkForUpdates = p[Keys.checkForUpdates] ?: d.checkForUpdates,
+            lastUpdateCheck = p[Keys.lastUpdateCheck] ?: d.lastUpdateCheck,
+            skippedUpdate = p[Keys.skippedUpdate],
         )
     }
 
@@ -181,6 +191,9 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             p[Keys.pip] = s.pictureInPicture
             p[Keys.backgroundPlay] = s.backgroundPlay
             p[Keys.castInBackground] = s.castInBackground
+            p[Keys.checkForUpdates] = s.checkForUpdates
+            p[Keys.lastUpdateCheck] = s.lastUpdateCheck
+            if (s.skippedUpdate != null) p[Keys.skippedUpdate] = s.skippedUpdate else p.remove(Keys.skippedUpdate)
             p[Keys.resume] = s.resume.name
             p[Keys.swipeBrightness] = s.swipeBrightness
             p[Keys.swipeVolume] = s.swipeVolume

@@ -49,6 +49,7 @@ import tube.three06.app.data.Settings
 import tube.three06.app.data.SponsorBlockCategories
 import tube.three06.app.data.StreamResolverChoice
 import tube.three06.app.data.ThemeMode
+import tube.three06.app.data.UpdateState
 import tube.three06.app.data.ytdlp.YtDlp
 import tube.three06.app.ui.common.LocalGraph
 import tube.three06.app.ui.common.LocalIsTv
@@ -376,6 +377,36 @@ fun SettingsScreen() {
                     headlineContent = { Text("306Tube") },
                     supportingContent = { Text("Version ${versionName(graph.context)} · GPL-3.0") },
                 )
+                val updateState by graph.updater.state.collectAsStateWithLifecycle()
+                ListItem(
+                    headlineContent = { Text("Check for updates") },
+                    supportingContent = {
+                        Text(
+                            when (val u = updateState) {
+                                UpdateState.Idle -> "Looks for a newer release on GitHub"
+                                UpdateState.Checking -> "Checking…"
+                                UpdateState.UpToDate -> "You're on the latest release"
+                                is UpdateState.Available -> "${u.update.version} is available"
+                                is UpdateState.Downloading -> "Downloading ${(u.fraction * 100).toInt()}%"
+                                is UpdateState.Installing -> "Installing…"
+                                is UpdateState.Failed -> u.message
+                            },
+                        )
+                    },
+                    modifier = Modifier.clickable {
+                        // With an update already found, the tap reopens its dialog.
+                        if (updateState is UpdateState.Available || (updateState as? UpdateState.Failed)?.update != null) {
+                            graph.updater.prompt.value = true
+                        } else {
+                            graph.updater.check(manual = true)
+                        }
+                    },
+                )
+                SwitchRow(
+                    "Check automatically",
+                    "Asks GitHub for the latest release once a day when the app opens",
+                    settings.checkForUpdates,
+                ) { update { s -> s.copy(checkForUpdates = it) } }
                 ListItem(headlineContent = { Text("Licenses") }, modifier = Modifier.clickable { licenses = true })
             }
         }

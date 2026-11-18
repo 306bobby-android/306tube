@@ -47,6 +47,8 @@ Android 8.0+ on arm64 or 32-bit ARM.
 
 Grab the latest APK from [Releases](https://github.com/306bobby-android/306tube/releases) and open it. Or build it yourself: see [BUILDING.md](BUILDING.md).
 
+After that the app updates itself: it checks GitHub once a day and offers to install a new release. Turn that off under Settings → About.
+
 ## Good to know
 
 - **Playback broke?** YouTube changes things constantly. Switch Settings → Playback → Stream source between the NewPipe extractor and yt-dlp. One of them is usually working.

@@ -23,6 +23,7 @@ import tube.three06.app.data.RoomRecommenderStore
 import tube.three06.app.data.RoomScreenStore
 import tube.three06.app.data.SettingsRepository
 import tube.three06.app.data.StreamResolverChoice
+import tube.three06.app.data.Updater
 import tube.three06.app.data.api.DeArrowApi
 import tube.three06.app.data.api.ReturnYouTubeDislikeApi
 import tube.three06.app.data.api.SponsorBlockApi
@@ -125,6 +126,8 @@ class AppGraph private constructor(val context: Context) {
         }
     }
 
+    val updater = Updater(context, http, settings, scope)
+
     // A TV is the thing you cast to; phones keep the sender side only.
     val castReceiver: CastReceiver? = if (isTv) CastReceiver(this) else null
 
@@ -135,6 +138,7 @@ class AppGraph private constructor(val context: Context) {
             runBlocking { graph.accounts.restore() }
             graph.playbackObserver.start()
             graph.castReceiver?.start()
+            graph.updater.autoCheck()
             graph.scope.launch { runCatching { YtDlp.ensureReady(app) } }
             return graph
         }

@@ -61,6 +61,7 @@ import tube.three06.app.ui.channel.ChannelScreen
 import tube.three06.app.ui.common.LocalGraph
 import tube.three06.app.ui.common.LocalIsTv
 import tube.three06.app.ui.common.TvIndication
+import tube.three06.app.ui.common.UpdateDialog
 import tube.three06.app.ui.common.LocalMessages
 import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.common.LocalPlay
@@ -272,6 +273,7 @@ private fun Shell(
         menuVideo?.let { video -> VideoMenuSheet(video) { menuVideo = null } }
         if (accountsSheet) AccountsSheet { accountsSheet = false }
         if (castSheet) CastSheet(castVm) { castSheet = false }
+        UpdateDialog(graph.updater)
     }
 }
 

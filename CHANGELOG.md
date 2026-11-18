@@ -6,6 +6,7 @@ Newest first. The release workflow copies the section matching the tag into the 
 
 - Android TV Support
 - TV layout with typical controller controls
+- In-app updates: checks GitHub for a new release and installs it
 - Cast to a TV running 306Tube, from the YouTube app or 306Tube on a phone
 - TV: *EXPERIMENTAL* Optional background service to allow casting when backgrounded
 - Fixed blank thumbnails with Random frame thumbnails on
