@@ -533,6 +533,15 @@ internal fun channelTabKind(title: String?): ChannelTabKind? = when (title?.lowe
     else -> null
 }
 
+/** The view-model button carries no state of its own; it points at an entity in frameworkUpdates. */
+private fun subscribedState(response: JsonElement?, button: JsonElement?): Boolean? {
+    if (button == null) return null
+    button["subscribed"].bool?.let { return it }
+    val key = button["stateEntityStoreKey"].str
+    val states = response["frameworkUpdates"].findAll("subscriptionStateEntity")
+    return (states.firstOrNull { key != null && it["key"].str == key } ?: states.firstOrNull())["subscribed"].bool
+}
+
 internal fun parseChannelHeader(response: JsonElement?, fallbackId: String?): Channel {
     val meta = response["metadata"]["channelMetadataRenderer"]
     val header = response["header"]
@@ -569,7 +578,7 @@ internal fun parseChannelHeader(response: JsonElement?, fallbackId: String?): Ch
             ?: vm["description"].findFirst("description").text
             ?: c4["tagline"].findFirst("content").text,
         verified = verified,
-        subscribed = vm["actions"].findFirst("subscribeButtonViewModel")["subscribed"].bool
+        subscribed = subscribedState(response, vm["actions"].findFirst("subscribeButtonViewModel"))
             ?: c4["subscribeButton"]["subscribeButtonRenderer"]["subscribed"].bool,
     )
 }
@@ -789,7 +798,7 @@ internal fun parseVideoDetails(response: JsonElement, videoId: String): VideoDet
         chapters = chapters,
         likeStatus = likeStatus,
         subscribed = secondary["subscribeButton"]["subscribeButtonRenderer"]["subscribed"].bool
-            ?: secondary.findFirst("subscribeButtonViewModel")["subscribed"].bool,
+            ?: subscribedState(response, secondary.findFirst("subscribeButtonViewModel")),
         commentCountText = commentCountText,
         commentsContinuation = commentsContinuation,
         related = related,
