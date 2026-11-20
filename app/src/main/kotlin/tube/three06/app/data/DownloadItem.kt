@@ -9,6 +9,7 @@ data class DownloadItem(
     val percent: Int,
     val bytes: Long,
     val error: String?,
+    val speed: String? = null,
 ) {
     enum class State { QUEUED, WAITING_FOR_WIFI, RUNNING, DONE, FAILED }
 }

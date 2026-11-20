@@ -113,7 +113,8 @@ private fun statusLine(item: DownloadItem): String {
     val size = if (item.bytes > 0) " · ${formatBytes(item.bytes)}" else ""
     return when (item.state) {
         DownloadItem.State.DONE -> "${item.qualityLabel} · Downloaded$size"
-        DownloadItem.State.RUNNING -> "${item.qualityLabel} · ${item.percent}%"
+        DownloadItem.State.RUNNING ->
+            "${item.qualityLabel} · ${item.percent}%" + (item.speed?.let { " · $it" } ?: "")
         DownloadItem.State.QUEUED -> "${item.qualityLabel} · Queued"
         DownloadItem.State.WAITING_FOR_WIFI -> "${item.qualityLabel} · Waiting for Wi-Fi"
         DownloadItem.State.FAILED -> "${item.qualityLabel} · Failed${item.error?.let { ": $it" } ?: ""}"

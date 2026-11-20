@@ -14,6 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -37,7 +38,12 @@ class DownloadRepository(
     val idle = MutableStateFlow(true)
     private var worker: Job? = null
 
-    val items: Flow<List<DownloadItem>> = dao.observeAll().map { rows -> rows.mapNotNull { it.toItem() } }
+    // lives only while yt-dlp runs, so not worth a column
+    private val speed = MutableStateFlow<Pair<String, String>?>(null)
+
+    val items: Flow<List<DownloadItem>> = combine(dao.observeAll(), speed) { rows, speed ->
+        rows.mapNotNull { row -> row.toItem(speed?.takeIf { it.first == row.videoId }?.second) }
+    }
 
     fun hasDownloadsDir(): Boolean = dir.exists()
 
@@ -134,14 +140,17 @@ class DownloadRepository(
         }
         var lastWrite = 0L
         val result = runCatching {
-            YoutubeDL.getInstance().execute(request, row.videoId) { progress, _, _ ->
+            YoutubeDL.getInstance().execute(request, row.videoId) { progress, _, line ->
                 val now = System.currentTimeMillis()
                 if (progress >= 0f && now - lastWrite > 500) {
                     lastWrite = now
+                    // "[download]  42.0% of 10.00MiB at 1.23MiB/s ETA 00:05"
+                    SPEED.find(line)?.let { speed.value = row.videoId to it.groupValues[1].replace("iB", "B") }
                     runBlocking { dao.setPercent(row.videoId, progress.toInt().coerceIn(0, 100)) }
                 }
             }
         }
+        speed.value = null
         result.onFailure { e ->
             Log.w(TAG, "yt-dlp failed for ${row.videoId}", e)
             // Removing a download kills the process; the row is already gone then.
@@ -192,7 +201,7 @@ class DownloadRepository(
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
     }
 
-    private fun DownloadEntity.toItem(): DownloadItem? {
+    private fun DownloadEntity.toItem(speed: String?): DownloadItem? {
         val video = VideoJson.decode(videoJson) ?: return null
         return DownloadItem(
             video = video,
@@ -210,6 +219,7 @@ class DownloadRepository(
             percent = percent,
             bytes = listOfNotNull(videoPath, audioPath).sumOf { File(it).length() },
             error = error,
+            speed = speed.takeIf { state == STATE_RUNNING },
         )
     }
 
@@ -219,6 +229,8 @@ class DownloadRepository(
         const val STATE_RUNNING = "running"
         const val STATE_DONE = "done"
         const val STATE_FAILED = "failed"
+
+        private val SPEED = Regex("""at\s+([\d.]+\s?[KMG]?i?B/s)""")
 
         private val VIDEO_EXTENSIONS = setOf("mp4", "webm", "mkv")
         private val AUDIO_EXTENSIONS = setOf("m4a", "opus", "ogg", "mp3", "weba")

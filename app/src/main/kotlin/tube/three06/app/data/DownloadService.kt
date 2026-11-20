@@ -37,7 +37,7 @@ class DownloadService : Service() {
                         it.state == DownloadItem.State.QUEUED || it.state == DownloadItem.State.WAITING_FOR_WIFI
                     }
                     val text = when {
-                        running != null -> running.video.title
+                        running != null -> listOfNotNull(running.speed, running.video.title).joinToString(" · ")
                         queued > 0 -> "Waiting for Wi-Fi"
                         else -> "Finishing…"
                     } + if (queued > 0 && running != null) " · $queued more queued" else ""
