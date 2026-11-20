@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "tube.three06"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.the306bobby.three06tube"

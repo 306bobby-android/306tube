@@ -1,5 +1,10 @@
 package tube.three06.app.ui.common
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.clickable
@@ -185,7 +190,15 @@ private fun DownloadQualityDialog(video: Video, onDone: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var pendingHeight by remember { mutableStateOf<Int?>(null) }
 
+    // Without it the progress notification is silently dropped on Android 13+.
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     fun begin(height: Int) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
         graph.scope.launch {
             runCatching { graph.downloads.start(video, height) }
                 .onSuccess { message("Download started") }

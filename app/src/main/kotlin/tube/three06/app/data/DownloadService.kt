@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +30,7 @@ class DownloadService : Service() {
         ensureChannel()
         startInForeground(buildNotification("Preparing download…", null))
         scope.launch {
-            launch {
+            val updates = launch {
                 repo.items.collect { items ->
                     val running = items.firstOrNull { it.state == DownloadItem.State.RUNNING }
                     val queued = items.count {
@@ -45,6 +46,8 @@ class DownloadService : Service() {
                 }
             }
             repo.idle.first { it }
+            // a notify() after the service stops would leave an ongoing notification nothing clears
+            updates.cancel()
             stopSelf()
         }
         return START_NOT_STICKY
@@ -52,6 +55,7 @@ class DownloadService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
         super.onDestroy()
     }
 
@@ -64,21 +68,39 @@ class DownloadService : Service() {
     }
 
     private fun buildNotification(text: String, percent: Int?): Notification {
+        val open = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_DOWNLOADS, true),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        if (Build.VERSION.SDK_INT >= 36) return progressNotification(text, percent, open)
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle("Downloading")
             .setContentText(text)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    this,
-                    0,
-                    Intent(this, MainActivity::class.java),
-                    PendingIntent.FLAG_IMMUTABLE,
-                ),
-            )
+            .setContentIntent(open)
         if (percent != null) builder.setProgress(100, percent, false) else builder.setProgress(0, 0, true)
+        return builder.build()
+    }
+
+    @RequiresApi(36)
+    private fun progressNotification(text: String, percent: Int?, open: PendingIntent): Notification {
+        val style = Notification.ProgressStyle()
+        if (percent != null) style.setProgress(percent) else style.setProgressIndeterminate(true)
+        val builder = Notification.Builder(this, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle("Downloading")
+            .setContentText(text)
+            .setOnlyAlertOnce(true)
+            .setOngoing(true)
+            .setContentIntent(open)
+            .setStyle(style)
+        if (percent != null) builder.setShortCriticalText("$percent%")
+        // Notification.EXTRA_REQUEST_PROMOTED_ONGOING, public from 36.1: asks for a Live Update chip
+        builder.extras.putBoolean("android.requestPromotedOngoing", true)
         return builder.build()
     }
 

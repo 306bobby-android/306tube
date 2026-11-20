@@ -13,7 +13,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Inbox
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +58,25 @@ fun ErrorBox(
     )
 }
 
+fun Context.isOffline(): Boolean {
+    val cm = getSystemService(ConnectivityManager::class.java) ?: return false
+    val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return true
+    return !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+}
+
+@Composable
+fun OfflineBox(onRetry: () -> Unit, modifier: Modifier = Modifier.fillMaxSize()) {
+    val navigator = LocalNavigator.current
+    MessageBox(
+        icon = Icons.Outlined.CloudOff,
+        title = "You're offline",
+        message = "Check your connection, or watch something you've downloaded.",
+        modifier = modifier,
+        action = "Refresh" to onRetry,
+        secondary = "Downloads" to navigator::openDownloads,
+    )
+}
+
 @Composable
 fun EmptyBox(
     title: String,
@@ -72,6 +95,7 @@ private fun MessageBox(
     message: String?,
     modifier: Modifier,
     action: Pair<String, () -> Unit>?,
+    secondary: Pair<String, () -> Unit>? = null,
 ) {
     Box(modifier.padding(32.dp), contentAlignment = Alignment.Center) {
         Column(
@@ -96,6 +120,9 @@ private fun MessageBox(
             if (action != null) {
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = action.second) { Text(action.first) }
+            }
+            if (secondary != null) {
+                OutlinedButton(onClick = secondary.second) { Text(secondary.first) }
             }
         }
     }

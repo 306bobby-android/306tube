@@ -126,6 +126,7 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
     val related by vm.related.state.collectAsStateWithLifecycle()
     val relatedItems = related.items.hidingShorts().hidingWatchedAndMixes()
     val resumeOffer by graph.overlay.resumeOffer.collectAsStateWithLifecycle()
+    val savedDescription by vm.savedDescription.collectAsStateWithLifecycle()
     val navigator = LocalNavigator.current
     val play = LocalPlay.current
     val videoMenu = LocalVideoMenu.current
@@ -340,12 +341,33 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
         item("description") {
             when (val load = details) {
                 null, Load.Loading -> LoadingRow()
-                is Load.Error -> ErrorBox(
-                    load.message,
-                    Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                ) { vm.load() }
+                is Load.Error -> {
+                    val saved = savedDescription
+                    if (saved != null) {
+                        var expanded by remember(saved) { mutableStateOf(false) }
+                        Card(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp)
+                                .clickable { expanded = !expanded },
+                        ) {
+                            Text(
+                                saved,
+                                Modifier.padding(12.dp),
+                                maxLines = if (expanded) Int.MAX_VALUE else 3,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    } else {
+                        ErrorBox(
+                            load.message,
+                            Modifier
+                                .fillMaxWidth()
+                                .height(120.dp),
+                        ) { vm.load() }
+                    }
+                }
                 is Load.Ready -> Card(
                     Modifier
                         .fillMaxWidth()

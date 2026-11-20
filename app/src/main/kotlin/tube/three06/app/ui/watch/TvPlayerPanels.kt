@@ -174,6 +174,7 @@ fun TvCommentsPanel(vm: WatchViewModel, focus: FocusRequester, modifier: Modifie
 fun TvDescriptionPanel(vm: WatchViewModel, focus: FocusRequester, modifier: Modifier = Modifier) {
     val details by vm.details.collectAsStateWithLifecycle()
     val d = (details as? Load.Ready)?.value
+    val saved by vm.savedDescription.collectAsStateWithLifecycle()
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
@@ -207,7 +208,7 @@ fun TvDescriptionPanel(vm: WatchViewModel, focus: FocusRequester, modifier: Modi
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text(
-                    d?.description?.ifBlank { "No description" } ?: "Loading…",
+                    d?.description?.ifBlank { "No description" } ?: saved ?: "Loading…",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }

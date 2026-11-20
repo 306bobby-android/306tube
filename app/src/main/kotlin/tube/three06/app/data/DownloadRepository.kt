@@ -87,6 +87,13 @@ class DownloadRepository(
         )
     }
 
+    /** Description yt-dlp saved next to the media; older downloads have none. */
+    fun description(videoId: String): String? =
+        dir.listFiles { file -> file.name.startsWith("$videoId.") && file.extension == "description" }
+            ?.firstOrNull()
+            ?.let { runCatching { it.readText() }.getOrNull() }
+            ?.takeIf { it.isNotBlank() }
+
     fun kick() {
         if (worker?.isActive == true) return
         idle.value = false
@@ -118,6 +125,7 @@ class DownloadRepository(
             addOption("--no-playlist")
             addOption("--no-mtime")
             addOption("--no-cache-dir")
+            addOption("--write-description")
             addOption("-N", 4)
             addOption("-P", dir.absolutePath)
             // format_id stays in the name so audio-only files can be told apart from video ones

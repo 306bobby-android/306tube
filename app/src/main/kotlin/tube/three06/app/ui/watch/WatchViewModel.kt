@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,6 +45,9 @@ class WatchViewModel(private val graph: AppGraph) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.Eagerly, graph.session.current.signedIn)
 
     val details = MutableStateFlow<Load<VideoDetails>?>(null)
+
+    /** Description kept with a download, for when [details] can't load. */
+    val savedDescription = MutableStateFlow<String?>(null)
     val ryd = MutableStateFlow<RydVotes?>(null)
     val branding = MutableStateFlow<Branding?>(null)
     val likeStatus = MutableStateFlow<LikeStatus?>(null)
@@ -100,6 +104,7 @@ class WatchViewModel(private val graph: AppGraph) : ViewModel() {
         loadJob?.cancel()
         loadedId = null
         details.value = null
+        savedDescription.value = null
         ryd.value = null
         branding.value = null
         likeStatus.value = null
@@ -116,6 +121,7 @@ class WatchViewModel(private val graph: AppGraph) : ViewModel() {
         details.value = Load.Loading
         loadJob = viewModelScope.launch {
             val s = settings.value
+            launch(Dispatchers.IO) { savedDescription.value = graph.downloads.description(video.id) }
             launch {
                 runCatching { graph.youTube.video(video.id) }
                     .onSuccess { d ->

@@ -54,6 +54,7 @@ import androidx.navigation.navArgument
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import tube.three06.app.MainActivity
 import tube.three06.app.di.AppGraph
 import tube.three06.app.ui.cast.CastChoiceSheet
 import tube.three06.app.ui.cast.CastSheet
@@ -354,6 +355,10 @@ private fun DeepLinkHandler(
         pendingIntent.collect { intent ->
             if (intent == null) return@collect
             onConsume()
+            if (intent.getBooleanExtra(MainActivity.EXTRA_OPEN_DOWNLOADS, false)) {
+                navigator.openDownloads()
+                return@collect
+            }
             val url = intent.data?.toString()
                 ?: intent.getStringExtra(Intent.EXTRA_TEXT)?.let { Regex("https?://\\S+").find(it)?.value }
                 ?: return@collect

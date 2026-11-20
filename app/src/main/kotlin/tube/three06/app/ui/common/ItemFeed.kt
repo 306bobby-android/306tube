@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -95,10 +96,14 @@ fun <T> PagedColumn(
         }
     }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     Box(modifier.fillMaxSize().nestedScroll(refreshState.nestedScrollConnection)) {
         when {
             state.loading && state.items.isEmpty() -> LoadingBox()
+            // the signed-out recommender swallows network errors and just comes back empty
+            state.items.isEmpty() && (state.error != null || state.isEmpty) && context.isOffline() ->
+                OfflineBox(onRetry)
             state.error != null && state.items.isEmpty() -> ErrorBox(state.error, onRetry = onRetry)
             state.isEmpty && header == null -> EmptyBox(emptyTitle, emptyMessage)
             else -> LazyColumn(state = listState, contentPadding = contentPadding) {

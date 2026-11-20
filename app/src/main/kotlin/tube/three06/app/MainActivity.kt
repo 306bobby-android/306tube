@@ -37,7 +37,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun offer(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_VIEW || intent?.action == Intent.ACTION_SEND) {
+        if (intent?.action == Intent.ACTION_VIEW || intent?.action == Intent.ACTION_SEND ||
+            intent?.getBooleanExtra(EXTRA_OPEN_DOWNLOADS, false) == true
+        ) {
             pendingIntent.value = intent
         }
     }
@@ -68,5 +70,9 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         if (!isInPictureInPictureMode && !graph.settings.current.backgroundPlay) graph.player.pause()
+    }
+
+    companion object {
+        const val EXTRA_OPEN_DOWNLOADS = "open_downloads"
     }
 }
