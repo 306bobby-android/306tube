@@ -42,7 +42,7 @@ class DownloadService : Service() {
                         else -> "Finishing…"
                     } + if (queued > 0 && running != null) " · $queued more queued" else ""
                     getSystemService(NotificationManager::class.java)
-                        .notify(NOTIFICATION_ID, buildNotification(text, running?.percent))
+                        .notify(NOTIFICATION_ID, buildNotification(text, running?.percent, running?.speed))
                 }
             }
             repo.idle.first { it }
@@ -67,14 +67,14 @@ class DownloadService : Service() {
         }
     }
 
-    private fun buildNotification(text: String, percent: Int?): Notification {
+    private fun buildNotification(text: String, percent: Int?, speed: String? = null): Notification {
         val open = PendingIntent.getActivity(
             this,
             0,
             Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_DOWNLOADS, true),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        if (Build.VERSION.SDK_INT >= 36) return progressNotification(text, percent, open)
+        if (Build.VERSION.SDK_INT >= 36) return progressNotification(text, percent, speed, open)
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle("Downloading")
@@ -87,7 +87,7 @@ class DownloadService : Service() {
     }
 
     @RequiresApi(36)
-    private fun progressNotification(text: String, percent: Int?, open: PendingIntent): Notification {
+    private fun progressNotification(text: String, percent: Int?, speed: String?, open: PendingIntent): Notification {
         val style = Notification.ProgressStyle()
         if (percent != null) style.setProgress(percent) else style.setProgressIndeterminate(true)
         val builder = Notification.Builder(this, CHANNEL_ID)
@@ -98,7 +98,13 @@ class DownloadService : Service() {
             .setOngoing(true)
             .setContentIntent(open)
             .setStyle(style)
-        if (percent != null) builder.setShortCriticalText("$percent%")
+        // The chip already shows the percentage from the style on some skins, so give it the speed
+        // instead, rounded to fit the chip's few characters: "14.60MB/s" -> "15MB/s".
+        speed?.let { text ->
+            val number = text.takeWhile { it.isDigit() || it == '.' }
+            val short = number.toDoubleOrNull()?.let { "${Math.round(it)}${text.drop(number.length)}" } ?: text
+            builder.setShortCriticalText(short)
+        }
         // Notification.EXTRA_REQUEST_PROMOTED_ONGOING, public from 36.1: asks for a Live Update chip
         builder.extras.putBoolean("android.requestPromotedOngoing", true)
         return builder.build()
