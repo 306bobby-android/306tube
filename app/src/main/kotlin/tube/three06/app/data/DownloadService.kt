@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import tube.three06.app.App
 import tube.three06.app.MainActivity
+import tube.three06.R
 
 class DownloadService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -37,12 +38,13 @@ class DownloadService : Service() {
                         it.state == DownloadItem.State.QUEUED || it.state == DownloadItem.State.WAITING_FOR_WIFI
                     }
                     val text = when {
-                        running != null -> listOfNotNull(running.speed, running.video.title).joinToString(" · ")
+                        running != null ->
+                            listOfNotNull("${running.percent}%", running.speed, running.video.title).joinToString(" · ")
                         queued > 0 -> "Waiting for Wi-Fi"
                         else -> "Finishing…"
                     } + if (queued > 0 && running != null) " · $queued more queued" else ""
                     getSystemService(NotificationManager::class.java)
-                        .notify(NOTIFICATION_ID, buildNotification(text, running?.percent, running?.speed))
+                        .notify(NOTIFICATION_ID, buildNotification(text, running?.percent))
                 }
             }
             repo.idle.first { it }
@@ -67,17 +69,17 @@ class DownloadService : Service() {
         }
     }
 
-    private fun buildNotification(text: String, percent: Int?, speed: String? = null): Notification {
+    private fun buildNotification(text: String, percent: Int?): Notification {
         val open = PendingIntent.getActivity(
             this,
             0,
             Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_OPEN_DOWNLOADS, true),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        if (Build.VERSION.SDK_INT >= 36) return progressNotification(text, percent, speed, open)
+        if (Build.VERSION.SDK_INT >= 36) return progressNotification(text, percent, open)
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(if (percent != null) "Downloading · $percent%" else "Downloading")
+            .setSmallIcon(R.drawable.ic_stat_download)
+            .setContentTitle("Downloading")
             .setContentText(text)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
@@ -87,24 +89,19 @@ class DownloadService : Service() {
     }
 
     @RequiresApi(36)
-    private fun progressNotification(text: String, percent: Int?, speed: String?, open: PendingIntent): Notification {
+    private fun progressNotification(text: String, percent: Int?, open: PendingIntent): Notification {
         val style = Notification.ProgressStyle()
         if (percent != null) style.setProgress(percent) else style.setProgressIndeterminate(true)
         val builder = Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(if (percent != null) "Downloading · $percent%" else "Downloading")
+            .setSmallIcon(R.drawable.ic_stat_download)
+            .setContentTitle("Downloading")
             .setContentText(text)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setContentIntent(open)
             .setStyle(style)
-        // The chip only fits a few characters, so the speed is rounded: "14.60MB/s" -> "15M/s".
-        val shortSpeed = speed?.let { text ->
-            val number = text.takeWhile { it.isDigit() || it == '.' }
-            number.toDoubleOrNull()?.let { "${Math.round(it)}${text.drop(number.length).replace("B/s", "/s")}" }
-        }
-        // no percentage here: crDroid's dynamic bar appends its own to whatever we send
-        shortSpeed?.let { builder.setShortCriticalText(it) }
+        // No short critical text: crDroid's dynamic bar appends its own percentage to it and clips
+        // the result at a few characters. Without one it falls back to the title, like other apps.
         // Notification.EXTRA_REQUEST_PROMOTED_ONGOING, public from 36.1: asks for a Live Update chip
         builder.extras.putBoolean("android.requestPromotedOngoing", true)
         return builder.build()
