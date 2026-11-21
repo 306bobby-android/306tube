@@ -103,7 +103,8 @@ class DownloadService : Service() {
             val number = text.takeWhile { it.isDigit() || it == '.' }
             number.toDoubleOrNull()?.let { "${Math.round(it)}${text.drop(number.length).replace("B/s", "/s")}" }
         }
-        if (percent != null) builder.setShortCriticalText(listOfNotNull("$percent%", shortSpeed).joinToString(" · "))
+        // no percentage here: crDroid's dynamic bar appends its own to whatever we send
+        shortSpeed?.let { builder.setShortCriticalText(it) }
         // Notification.EXTRA_REQUEST_PROMOTED_ONGOING, public from 36.1: asks for a Live Update chip
         builder.extras.putBoolean("android.requestPromotedOngoing", true)
         return builder.build()
