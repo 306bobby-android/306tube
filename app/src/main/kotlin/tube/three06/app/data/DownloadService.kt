@@ -100,10 +100,8 @@ class DownloadService : Service() {
             .setOngoing(true)
             .setContentIntent(open)
             .setStyle(style)
-        // No short critical text: crDroid's dynamic bar appends its own percentage to it and clips
-        // the result at a few characters. Without one it falls back to the title, like other apps.
-        // Notification.EXTRA_REQUEST_PROMOTED_ONGOING, public from 36.1: asks for a Live Update chip
-        builder.extras.putBoolean("android.requestPromotedOngoing", true)
+        // Not requesting promotion: the system's own promoted chip (app icon, no progress) then
+        // replaces the download chip crDroid's dynamic bar builds from a plain progress notification.
         return builder.build()
     }
 
