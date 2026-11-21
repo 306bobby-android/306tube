@@ -65,12 +65,29 @@ class DownloadRepository(
         kick()
     }
 
+    /** Stops yt-dlp but keeps its partial files, so [resume] carries on from where it was. */
+    suspend fun pause(videoId: String) {
+        val row = dao.byId(videoId) ?: return
+        if (row.state != STATE_QUEUED && row.state != STATE_RUNNING) return
+        dao.setState(videoId, STATE_PAUSED, row.percent)
+        YoutubeDL.getInstance().destroyProcessById(videoId)
+        DownloadNotifications.showPaused(context, videoId, VideoJson.decode(row.videoJson)?.title.orEmpty())
+    }
+
+    suspend fun resume(videoId: String) {
+        val row = dao.byId(videoId)?.takeIf { it.state == STATE_PAUSED } ?: return
+        DownloadNotifications.clearPaused(context, videoId)
+        dao.setState(videoId, STATE_QUEUED, row.percent)
+        kick()
+    }
+
     suspend fun retry(videoId: String) {
         dao.setState(videoId, STATE_QUEUED, 0)
         kick()
     }
 
     suspend fun remove(videoId: String) {
+        DownloadNotifications.clearPaused(context, videoId)
         YoutubeDL.getInstance().destroyProcessById(videoId)
         dao.byId(videoId)?.let { row ->
             listOfNotNull(row.videoPath, row.audioPath).forEach { File(it).delete() }
@@ -126,7 +143,7 @@ class DownloadRepository(
     }
 
     private suspend fun run(row: DownloadEntity) {
-        dao.setState(row.videoId, STATE_RUNNING, 0)
+        dao.setState(row.videoId, STATE_RUNNING, row.percent)
         val request = YoutubeDLRequest("https://www.youtube.com/watch?v=${row.videoId}").apply {
             addOption("--no-playlist")
             addOption("--no-mtime")
@@ -153,8 +170,9 @@ class DownloadRepository(
         speed.value = null
         result.onFailure { e ->
             Log.w(TAG, "yt-dlp failed for ${row.videoId}", e)
-            // Removing a download kills the process; the row is already gone then.
-            if (dao.byId(row.videoId) != null) {
+            // Removing or pausing a download kills the process; the row is gone or marked paused then.
+            val current = dao.byId(row.videoId)
+            if (current != null && current.state != STATE_PAUSED) {
                 dao.setState(
                     row.videoId,
                     STATE_FAILED,
@@ -208,6 +226,7 @@ class DownloadRepository(
             qualityLabel = if (maxHeight <= 0) "Audio" else "up to ${maxHeight}p",
             state = when (state) {
                 STATE_RUNNING -> DownloadItem.State.RUNNING
+                STATE_PAUSED -> DownloadItem.State.PAUSED
                 STATE_DONE -> DownloadItem.State.DONE
                 STATE_FAILED -> DownloadItem.State.FAILED
                 else -> if (videoId in waitingForWifi.value) {
@@ -227,6 +246,7 @@ class DownloadRepository(
         private const val TAG = "DownloadRepository"
         const val STATE_QUEUED = "queued"
         const val STATE_RUNNING = "running"
+        const val STATE_PAUSED = "paused"
         const val STATE_DONE = "done"
         const val STATE_FAILED = "failed"
 

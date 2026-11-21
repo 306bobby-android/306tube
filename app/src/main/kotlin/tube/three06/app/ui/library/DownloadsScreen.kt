@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -82,6 +84,16 @@ fun DownloadsScreen() {
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
+                        if (item.state == DownloadItem.State.RUNNING || item.state == DownloadItem.State.QUEUED) {
+                            IconButton(onClick = { graph.scope.launch { graph.downloads.pause(item.video.id) } }) {
+                                Icon(Icons.Default.Pause, "Pause")
+                            }
+                        }
+                        if (item.state == DownloadItem.State.PAUSED) {
+                            IconButton(onClick = { graph.scope.launch { graph.downloads.resume(item.video.id) } }) {
+                                Icon(Icons.Default.PlayArrow, "Resume")
+                            }
+                        }
                         if (item.state == DownloadItem.State.FAILED) {
                             IconButton(onClick = {
                                 graph.scope.launch {
@@ -97,7 +109,9 @@ fun DownloadsScreen() {
                             }
                         }) { Icon(Icons.Default.Delete, "Remove download") }
                     }
-                    if (item.state == DownloadItem.State.RUNNING || item.state == DownloadItem.State.QUEUED) {
+                    if (item.state == DownloadItem.State.RUNNING || item.state == DownloadItem.State.QUEUED ||
+                        item.state == DownloadItem.State.PAUSED
+                    ) {
                         LinearProgressIndicator(
                             progress = { item.percent / 100f },
                             modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
@@ -115,6 +129,7 @@ private fun statusLine(item: DownloadItem): String {
         DownloadItem.State.DONE -> "${item.qualityLabel} · Downloaded$size"
         DownloadItem.State.RUNNING ->
             "${item.qualityLabel} · ${item.percent}%" + (item.speed?.let { " · $it" } ?: "")
+        DownloadItem.State.PAUSED -> "${item.qualityLabel} · Paused · ${item.percent}%"
         DownloadItem.State.QUEUED -> "${item.qualityLabel} · Queued"
         DownloadItem.State.WAITING_FOR_WIFI -> "${item.qualityLabel} · Waiting for Wi-Fi"
         DownloadItem.State.FAILED -> "${item.qualityLabel} · Failed${item.error?.let { ": $it" } ?: ""}"

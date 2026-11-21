@@ -43,6 +43,10 @@
             android:foregroundServiceType="connectedDevice" />
 
         <receiver
+            android:name=".app.data.DownloadActionReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".app.data.UpdateInstallReceiver"
             android:exported="false" />
 
