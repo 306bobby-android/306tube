@@ -61,7 +61,9 @@ fun ErrorBox(
 fun Context.isOffline(): Boolean {
     val cm = getSystemService(ConnectivityManager::class.java) ?: return false
     val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return true
-    return !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    // a network can be up with no working internet behind it; VALIDATED is the system's own probe
+    return !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ||
+        !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 }
 
 @Composable

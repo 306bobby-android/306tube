@@ -1,5 +1,6 @@
 package tube.three06.app.ui.common
 
+import java.io.IOException
 import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -28,6 +29,8 @@ data class PagedState<T>(
     val refreshing: Boolean = false,
     val loadingMore: Boolean = false,
     val error: String? = null,
+    /** The last load failed without reaching the server. */
+    val networkError: Boolean = false,
     val loadedOnce: Boolean = false,
     val completedLoads: Int = 0,
     // elapsedRealtime of the last good first-page load, 0 = never
@@ -50,7 +53,7 @@ class Paged<T>(
     fun load() {
         if (_state.value.loading) return
         job?.cancel()
-        _state.update { it.copy(loading = true, error = null) }
+        _state.update { it.copy(loading = true, error = null, networkError = false) }
         job = scope.launch {
             runCatching { loader(null) }
                 .onSuccess { page ->
@@ -69,7 +72,7 @@ class Paged<T>(
                         it.copy(
                             loading = false,
                             refreshing = false,
-                            error = e.describe(),
+                            error = e.describe(), networkError = e is IOException,
                             loadedOnce = true,
                             completedLoads = it.completedLoads + 1,
                         )
@@ -80,7 +83,7 @@ class Paged<T>(
 
     fun refresh() {
         job?.cancel()
-        _state.update { it.copy(refreshing = true, error = null) }
+        _state.update { it.copy(refreshing = true, error = null, networkError = false) }
         job = scope.launch {
             runCatching { loader(null) }
                 .onSuccess { page ->
@@ -99,7 +102,7 @@ class Paged<T>(
                         it.copy(
                             loading = false,
                             refreshing = false,
-                            error = e.describe(),
+                            error = e.describe(), networkError = e is IOException,
                             loadedOnce = true,
                             completedLoads = it.completedLoads + 1,
                         )
@@ -125,7 +128,7 @@ class Paged<T>(
                     }
                 }
                 .onFailure { e ->
-                    _state.update { it.copy(loadingMore = false, error = e.describe()) }
+                    _state.update { it.copy(loadingMore = false, error = e.describe(), networkError = e is IOException) }
                 }
         }
     }

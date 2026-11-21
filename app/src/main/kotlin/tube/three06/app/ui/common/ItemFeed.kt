@@ -102,7 +102,7 @@ fun <T> PagedColumn(
         when {
             state.loading && state.items.isEmpty() -> LoadingBox()
             // the signed-out recommender swallows network errors and just comes back empty
-            state.items.isEmpty() && (state.error != null || state.isEmpty) && context.isOffline() ->
+            state.items.isEmpty() && (state.networkError || ((state.error != null || state.isEmpty) && context.isOffline())) ->
                 OfflineBox(onRetry)
             state.error != null && state.items.isEmpty() -> ErrorBox(state.error, onRetry = onRetry)
             state.isEmpty && header == null -> EmptyBox(emptyTitle, emptyMessage)
