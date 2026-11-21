@@ -98,13 +98,12 @@ class DownloadService : Service() {
             .setOngoing(true)
             .setContentIntent(open)
             .setStyle(style)
-        // The chip already shows the percentage from the style on some skins, so give it the speed
-        // instead, rounded to fit the chip's few characters: "14.60MB/s" -> "15MB/s".
-        speed?.let { text ->
+        // The chip only fits a few characters, so the speed is rounded: "14.60MB/s" -> "15M/s".
+        val shortSpeed = speed?.let { text ->
             val number = text.takeWhile { it.isDigit() || it == '.' }
-            val short = number.toDoubleOrNull()?.let { "${Math.round(it)}${text.drop(number.length)}" } ?: text
-            builder.setShortCriticalText(short)
+            number.toDoubleOrNull()?.let { "${Math.round(it)}${text.drop(number.length).replace("B/s", "/s")}" }
         }
+        if (percent != null) builder.setShortCriticalText(listOfNotNull("$percent%", shortSpeed).joinToString(" · "))
         // Notification.EXTRA_REQUEST_PROMOTED_ONGOING, public from 36.1: asks for a Live Update chip
         builder.extras.putBoolean("android.requestPromotedOngoing", true)
         return builder.build()
