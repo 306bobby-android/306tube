@@ -8,6 +8,7 @@ import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.flow.MutableStateFlow
 import tube.three06.app.di.AppGraph
 import tube.three06.app.ui.nav.TubeApp
@@ -65,6 +66,8 @@ class MainActivity : ComponentActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         graph.overlay.inPip.value = isInPictureInPictureMode
+        // Closing the window stops the activity first; expanding it leaves it started.
+        if (!isInPictureInPictureMode && lifecycle.currentState == Lifecycle.State.CREATED) graph.player.pause()
     }
 
     override fun onStop() {
