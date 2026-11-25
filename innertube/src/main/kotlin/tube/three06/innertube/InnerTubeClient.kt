@@ -800,19 +800,23 @@ class InnerTubeClient(
                     put("removedVideoId", videoId)
                 }
             },
+            confirmRemoval = true,
         )
     }
 
-    private suspend fun editPlaylist(playlistId: String, action: JsonObject) {
+    private suspend fun editPlaylist(playlistId: String, action: JsonObject, confirmRemoval: Boolean = false) {
         val res = call(
             "browse/edit_playlist",
             buildJsonObject {
                 put("playlistId", playlistId.removePrefix("VL"))
                 putJsonArray("actions") { add(action) }
+                if (confirmRemoval && playlistId.removePrefix("VL") == "WL") put("params", "CAFAAQ%3D%3D")
             },
         )
         val status = res["status"].str
-        if (status != null && status != "STATUS_SUCCEEDED") throw InnerTubeException("edit_playlist: $status")
+        if (status != "STATUS_SUCCEEDED" && (confirmRemoval || status != null)) {
+            throw InnerTubeException("edit_playlist: ${status ?: "removal not confirmed"}")
+        }
     }
 
     override suspend fun removeFromHistory(videoId: String) {

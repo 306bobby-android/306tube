@@ -130,6 +130,7 @@ internal fun receivedItems(response: JsonElement?): List<JsonElement> {
 
 private val CONTAINER_KEYS = setOf(
     "itemSectionRenderer",
+    "playlistVideoListRenderer",
     "sectionListRenderer",
     "richGridRenderer",
     "gridRenderer",
@@ -159,7 +160,7 @@ private fun collect(e: JsonElement?, out: MutableList<Item>) {
     val body = obj[name]
     when (name) {
         "itemSectionRenderer", "sectionListRenderer", "richGridRenderer",
-        "expandedShelfContentsRenderer", "showingResultsForRenderer",
+        "playlistVideoListRenderer", "expandedShelfContentsRenderer", "showingResultsForRenderer",
         -> body["contents"].list.forEach { collect(it, out) }
 
         "gridRenderer", "horizontalListRenderer", "verticalListRenderer",
@@ -284,6 +285,12 @@ private fun parseVideoRenderer(r: JsonElement): Video? {
         },
         resumeSeconds = r["navigationEndpoint"]["watchEndpoint"]["startTimeSeconds"].long,
         badges = r["badges"].list.mapNotNull { it["metadataBadgeRenderer"]["label"].str },
+        isWatched = r["isWatched"].bool == true ||
+            overlays.any {
+                (it["thumbnailOverlayResumePlaybackRenderer"]["percentDurationWatched"].int ?: 0) >= 100 ||
+                    it["thumbnailOverlayPlaybackStatusRenderer"]["text"].text.equals("watched", ignoreCase = true)
+            },
+        setVideoId = r["setVideoId"].str,
     )
 }
 

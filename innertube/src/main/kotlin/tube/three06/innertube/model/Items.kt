@@ -33,6 +33,8 @@ data class Video(
     val progressPercent: Int? = null,
     val resumeSeconds: Long? = null,
     val badges: List<String> = emptyList(),
+    val isWatched: Boolean = false,
+    val setVideoId: String? = null,
 ) : Item
 
 @Serializable

@@ -40,7 +40,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,7 +66,8 @@ fun VideoMenuSheet(video: Video, onAddToTvQueue: (() -> Unit)? = null, onDismiss
     val graph = LocalGraph.current
     val context = LocalContext.current
     val message = LocalMessages.current
-    val scope = rememberCoroutineScope()
+    // Outlives the sheet, so an action finishes after it is dismissed.
+    val scope = graph.scope
     val credentials by graph.session.credentials.collectAsStateWithLifecycle()
     val signedIn = credentials.signedIn
     var choosePlaylist by remember { mutableStateOf(false) }
@@ -262,7 +262,8 @@ private fun MenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
 fun LocalPlaylistChooser(video: Video, onDone: () -> Unit) {
     val graph = LocalGraph.current
     val message = LocalMessages.current
-    val scope = rememberCoroutineScope()
+    // Outlives the sheet, so an action finishes after it is dismissed.
+    val scope = graph.scope
     val playlists by graph.library.playlists.collectAsStateWithLifecycle(initialValue = emptyList())
     var newName by remember { mutableStateOf<String?>(null) }
 
