@@ -14,9 +14,16 @@ Newest first. The release workflow copies the section matching the tag into the 
 - Added in-app updater
 - Fixed watch history sync to YouTube, and resume from YouTube's position
 - New settings to hide videos watched past 80% and Mixes from Home and related videos. On by default.
-- Downloads show a progress notification (Live Update on Android 16) and keep the video description
+- Downloads show a progress notification and keep the video description
 - Offline page with Refresh and Downloads when the feed can't load
 - Cast: phone shows the TV queue instead of a remote pad
+- Download notification shows speed and has Pause and Cancel
+- Fixed subscribed channels showing Subscribe
+- Tablets, desktops and unfolded foldables get a grid layout, and a player page with comments under the video and recommendations beside it
+- Closing picture-in-picture pauses the video
+- Side dead zones for swipe to seek, so the back gesture and navigation bar don't seek
+- Watch later: sort and filter by duration, remove watched videos (Super-Matter)
+- Fixed playlists missing their first page of videos (Super-Matter)
 
 ## 1.0.0
 
