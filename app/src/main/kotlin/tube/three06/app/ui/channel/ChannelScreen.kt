@@ -41,8 +41,7 @@ import tube.three06.app.di.AppGraph
 import tube.three06.app.ui.common.Avatar
 import tube.three06.app.ui.common.ErrorBox
 import tube.three06.app.ui.common.ItemView
-import tube.three06.app.ui.common.LocalIsTv
-import tube.three06.app.ui.common.TV_FEED_COLUMNS
+import tube.three06.app.ui.common.feedColumns
 import tube.three06.app.ui.common.feedItems
 import tube.three06.app.ui.common.Load
 import tube.three06.app.ui.common.LoadingBox
@@ -152,7 +151,7 @@ private val shownTabs = listOf(
 
 @Composable
 fun ChannelScreen(idOrHandle: String) {
-    val columns = if (LocalIsTv.current) TV_FEED_COLUMNS else 1
+    val columns = feedColumns()
     val vm = graphViewModel(key = "channel:$idOrHandle") { ChannelViewModel(it, idOrHandle) }
     val page by vm.page.collectAsStateWithLifecycle()
     val tab by vm.selectedTab.collectAsStateWithLifecycle()

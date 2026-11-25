@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,13 +37,25 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import tube.three06.innertube.model.Item
 import tube.three06.innertube.model.Video
 
 val LocalIsTv = staticCompositionLocalOf { false }
 
+/** A tablet, desktop or unfolded window: feeds become grids and the player page gets two panes. */
+val LocalWide = compositionLocalOf { false }
+
 const val TV_FEED_COLUMNS = 4
+
+@Composable
+fun feedColumns(): Int = when {
+    LocalIsTv.current -> TV_FEED_COLUMNS
+    !LocalWide.current -> 1
+    LocalConfiguration.current.screenWidthDp >= 840 -> 4
+    else -> 3
+}
 
 fun Context.isTelevision(): Boolean {
     val uiMode = getSystemService(UiModeManager::class.java)?.currentModeType

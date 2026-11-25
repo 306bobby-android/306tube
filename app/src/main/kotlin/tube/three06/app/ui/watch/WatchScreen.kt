@@ -3,6 +3,7 @@ package tube.three06.app.ui.watch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.navigationBars
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -83,6 +86,7 @@ import tube.three06.app.ui.common.LoadingBox
 import tube.three06.app.ui.common.LoadingRow
 import tube.three06.app.ui.common.LocalGraph
 import tube.three06.app.ui.common.LocalIsTv
+import tube.three06.app.ui.common.LocalWide
 import tube.three06.app.ui.common.focusHighlight
 import tube.three06.app.ui.common.LocalMessages
 import tube.three06.app.ui.common.LocalNavigator
@@ -112,8 +116,9 @@ import tube.three06.recommend.WatchEvent
 
 private enum class Sheet { DESCRIPTION, COMMENTS, QUEUE }
 
+/** [player] is placed by this layout: above the list, or above the left column on a wide window. */
 @Composable
-fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
+fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier, player: @Composable (Modifier) -> Unit) {
     val graph = LocalGraph.current
     val playerState by vm.playerState.collectAsStateWithLifecycle()
     val queue by vm.queue.collectAsStateWithLifecycle()
@@ -155,8 +160,9 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
     }
 
     val listState = rememberLazyListState()
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress }.collectLatest { scrolling ->
+    val sideState = rememberLazyListState()
+    LaunchedEffect(listState, sideState) {
+        snapshotFlow { listState.isScrollInProgress || sideState.isScrollInProgress }.collectLatest { scrolling ->
             if (scrolling) {
                 graph.player.holdUpNext(true)
             } else {
@@ -166,13 +172,19 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
         }
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        state = listState,
-        contentPadding = PaddingValues(
-            bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
-        ),
-    ) {
+    val wide = LocalWide.current
+    val comments by vm.comments.state.collectAsStateWithLifecycle()
+    val replies by vm.replies.collectAsStateWithLifecycle()
+    if (wide) {
+        LaunchedEffect(d?.id, d?.commentsContinuation) {
+            if (d?.commentsContinuation != null) vm.loadComments()
+        }
+    }
+    val listPadding = PaddingValues(
+        bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+    )
+
+    val main: LazyListScope.() -> Unit = {
         item("title") {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.Top) {
@@ -410,7 +422,43 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        if (d != null) {
+        if (d != null && wide) {
+            item("comments-header") {
+                Row(Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Comments", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (d.commentsContinuation == null) "Comments are turned off" else d.commentCountText ?: "",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            when {
+                d.commentsContinuation == null -> {}
+                comments.error != null && comments.items.isEmpty() -> item("comments-error") {
+                    ErrorBox(comments.error!!, Modifier.fillMaxWidth().height(120.dp), vm.comments::load)
+                }
+                comments.items.isEmpty() && !comments.isEmpty -> item("comments-loading") { LoadingRow() }
+                else -> {
+                    itemsIndexed(comments.items, key = { _, c -> "comment:${c.id}" }) { _, c ->
+                        CommentRow(c, replies[c.id], onLoadReplies = { vm.loadReplies(c) })
+                    }
+                    if (comments.continuation != null) {
+                        item("comments-more") {
+                            if (comments.loadingMore) {
+                                LoadingRow()
+                            } else {
+                                TextButton(onClick = vm.comments::loadMore, modifier = Modifier.fillMaxWidth()) {
+                                    Text("Load more")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (d != null && !wide) {
             item("comments") {
                 Card(
                     Modifier
@@ -435,6 +483,9 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
             }
         }
 
+    }
+
+    val side: LazyListScope.() -> Unit = {
         val panel = if (queue.items.size > 1) queue.items else d?.playlistPanel?.videos ?: emptyList()
         if (panel.size > 1) {
             item("panel-header") {
@@ -509,14 +560,18 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
         }
 
         items(relatedItems, key = { itemKey(it) }) { item ->
-            ItemView(item, onClick = { clicked ->
-                when (clicked) {
-                    is Video -> play.play(clicked, source = WatchEvent.Source.RELATED)
-                    is Channel -> navigator.openChannel(clicked.id)
-                    is Playlist -> navigator.openPlaylist(clicked.id)
-                    else -> {}
-                }
-            })
+            if (wide && item is Video) {
+                VideoRow(item, onClick = { play.play(item, source = WatchEvent.Source.RELATED) })
+            } else {
+                ItemView(item, onClick = { clicked ->
+                    when (clicked) {
+                        is Video -> play.play(clicked, source = WatchEvent.Source.RELATED)
+                        is Channel -> navigator.openChannel(clicked.id)
+                        is Playlist -> navigator.openPlaylist(clicked.id)
+                        else -> {}
+                    }
+                })
+            }
         }
         if (related.loadingMore) {
             item("related-loading") { LoadingRow() }
@@ -526,6 +581,29 @@ fun WatchDetails(vm: WatchViewModel, modifier: Modifier = Modifier) {
                 TextButton(onClick = vm.related::loadMore, modifier = Modifier.fillMaxWidth()) {
                     Text("Show more")
                 }
+            }
+        }
+    }
+
+    if (!wide) {
+        Column(modifier.fillMaxSize()) {
+            player(Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+            LazyColumn(Modifier.fillMaxSize(), listState, listPadding) {
+                main()
+                side()
+            }
+        }
+    } else {
+        BoxWithConstraints(modifier.fillMaxSize()) {
+            val sideWidth = (maxWidth * 0.36f).coerceIn(300.dp, 420.dp)
+            // Capped so a landscape tablet keeps room for the description and comments underneath.
+            val playerHeight = minOf((maxWidth - sideWidth) * 9f / 16f, maxHeight * 0.6f)
+            Row {
+                Column(Modifier.weight(1f)) {
+                    player(Modifier.fillMaxWidth().height(playerHeight))
+                    LazyColumn(Modifier.fillMaxSize(), listState, listPadding) { main() }
+                }
+                LazyColumn(Modifier.width(sideWidth).fillMaxHeight(), sideState, listPadding) { side() }
             }
         }
     }

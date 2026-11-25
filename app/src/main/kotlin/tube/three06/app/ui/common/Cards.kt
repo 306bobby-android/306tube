@@ -136,8 +136,8 @@ fun VideoCard(
 ) {
     val menu = LocalVideoMenu.current
     val branding = rememberBranding(video)
-    // Grid cells on TV are too narrow for the avatar and overflow button; long-press opens the menu.
-    val tv = LocalIsTv.current
+    // Grid cells are too narrow for the avatar and overflow button; long-press opens the menu.
+    val tv = LocalIsTv.current || LocalWide.current
     Column(
         modifier
             .fillMaxWidth()

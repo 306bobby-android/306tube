@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -250,7 +249,7 @@ fun PlayerOverlay(
                     .alpha(((progress - 0.25f) / 0.5f).coerceIn(0f, 1f))
                     .windowInsetsPadding(WindowInsets.statusBars)
                 val player: @Composable (Modifier) -> Unit = { playerModifier ->
-                    Box(playerModifier.aspectRatio(16f / 9f).background(Color.Black)) {
+                    Box(playerModifier.background(Color.Black)) {
                         PlayerSurface(Modifier.fillMaxSize())
                         PlayerControls(
                             state = state,
@@ -266,10 +265,7 @@ fun PlayerOverlay(
                         )
                     }
                 }
-                Column(content) {
-                    player(Modifier.fillMaxWidth())
-                    WatchDetails(vm, Modifier.fillMaxSize())
-                }
+                WatchDetails(vm, content, player)
             }
         }
     }

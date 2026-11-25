@@ -62,6 +62,7 @@ import tube.three06.app.ui.cast.CastViewModel
 import tube.three06.app.ui.channel.ChannelScreen
 import tube.three06.app.ui.common.LocalGraph
 import tube.three06.app.ui.common.LocalIsTv
+import tube.three06.app.ui.common.LocalWide
 import tube.three06.app.ui.common.TvIndication
 import tube.three06.app.ui.common.UpdateDialog
 import tube.three06.app.ui.common.LocalMessages
@@ -113,7 +114,9 @@ fun TubeApp(
                 Shell(graph, pendingIntent, onConsumeIntent, onEnterPip)
             }
         } else {
-            CompositionLocalProvider(LocalGraph provides graph) {
+            // The smallest width keeps a phone in landscape on the phone layout.
+            val wide = LocalConfiguration.current.smallestScreenWidthDp >= 600
+            CompositionLocalProvider(LocalGraph provides graph, LocalWide provides wide) {
                 Shell(graph, pendingIntent, onConsumeIntent, onEnterPip)
             }
         }
@@ -412,7 +415,9 @@ private fun FullscreenEffect(overlay: PlayerOverlayState) {
     val lockPortrait by overlay.lockPortrait.collectAsStateWithLifecycle()
     // A TV is always landscape; rotation must not drive fullscreen or orientation locks there.
     val isTv = LocalIsTv.current
-    val landscape = !isTv && LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // Nor on a wide window, where landscape is the normal way to browse.
+    val wide = LocalWide.current
+    val landscape = !isTv && !wide && LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     LaunchedEffect(landscape, expanded, fullscreen, lockPortrait) {
         if (landscape && expanded && !fullscreen && !lockPortrait) {
@@ -423,10 +428,12 @@ private fun FullscreenEffect(overlay: PlayerOverlayState) {
         }
     }
 
-    LaunchedEffect(fullscreen, lockPortrait) {
+    LaunchedEffect(fullscreen, lockPortrait, wide) {
         val window = activity.window
         val controller = WindowInsetsControllerCompat(window, view)
-        if (!isTv) {
+        if (wide) {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else if (!isTv) {
             activity.requestedOrientation = when {
                 fullscreen && overlay.fullscreenSource == PlayerOverlayState.FullscreenSource.BUTTON ->
                     ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE

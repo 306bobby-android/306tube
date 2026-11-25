@@ -35,8 +35,7 @@ import tube.three06.app.ui.common.ChannelRefCard
 import tube.three06.app.ui.common.EmptyBox
 import tube.three06.app.ui.common.FEED_STALE_AFTER_MILLIS
 import tube.three06.app.ui.common.ItemView
-import tube.three06.app.ui.common.LocalIsTv
-import tube.three06.app.ui.common.TV_FEED_COLUMNS
+import tube.three06.app.ui.common.feedColumns
 import tube.three06.app.ui.common.feedItems
 import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.common.Paged
@@ -128,7 +127,7 @@ class SubscriptionsViewModel(private val graph: AppGraph) : ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionsScreen() {
-    val columns = if (LocalIsTv.current) TV_FEED_COLUMNS else 1
+    val columns = feedColumns()
     val vm = graphViewModel { SubscriptionsViewModel(it) }
     val state by vm.feed.state.collectAsStateWithLifecycle()
     val items = state.items.hidingShorts()
