@@ -17,6 +17,7 @@ import tube.three06.app.data.DeArrowRepository
 import tube.three06.app.data.DownloadRepository
 import tube.three06.app.data.HistoryRepository
 import tube.three06.app.data.LocalLibraryRepository
+import tube.three06.app.data.LocalThumbnailRepository
 import tube.three06.app.data.PlaybackObserver
 import tube.three06.app.data.RoomRecommenderStore
 import tube.three06.app.data.RoomScreenStore
@@ -44,13 +45,17 @@ import tube.three06.recommend.LocalRecommender
 import tube.three06.recommend.Recommender
 import java.util.concurrent.TimeUnit
 
-class AppGraph private constructor(val context: Context) {
+class AppGraph private constructor(
+    val context: Context,
+) {
     val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    val http: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
+    val http: OkHttpClient =
+        OkHttpClient
+            .Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
 
     val db: AppDatabase = AppDatabase.build(context)
     val settings = SettingsRepository(context, scope)
@@ -67,6 +72,7 @@ class AppGraph private constructor(val context: Context) {
     val returnYouTubeDislike = ReturnYouTubeDislikeApi(http)
 
     val youTube: YouTube = InnerTubeClient(session, http)
+    val localThumbnails = LocalThumbnailRepository(youTube, http)
     val recommender: Recommender = LocalRecommender(youTube, recommenderStore)
 
     val player: PlayerController
@@ -91,36 +97,39 @@ class AppGraph private constructor(val context: Context) {
                 null
             }
         }
-        Playback.sessionActivity = PendingIntent.getActivity(
-            context,
-            0,
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        Playback.sessionActivity =
+            PendingIntent.getActivity(
+                context,
+                0,
+                Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
         player = Playback.get(context)
         playerHost = player as PlayerHost
     }
 
-    val downloads = DownloadRepository(context, db.downloads(), settings, scope).also { repo ->
-        Playback.offlineProvider = { videoId -> repo.offlineMedia(videoId) }
-    }
+    val downloads =
+        DownloadRepository(context, db.downloads(), settings, scope).also { repo ->
+            Playback.offlineProvider = { videoId -> repo.offlineMedia(videoId) }
+        }
 
     val overlay = PlayerOverlayState()
 
-    val playbackObserver = PlaybackObserver(
-        player,
-        history,
-        recommender,
-        youTube,
-        session,
-        settings,
-        sponsorBlock,
-        scope,
-    ).also {
-        Playback.autoplayProvider = { current ->
-            it.nextUp.value?.takeIf { next -> next.id != current.id }
+    val playbackObserver =
+        PlaybackObserver(
+            player,
+            history,
+            recommender,
+            youTube,
+            session,
+            settings,
+            sponsorBlock,
+            scope,
+        ).also {
+            Playback.autoplayProvider = { current ->
+                it.nextUp.value?.takeIf { next -> next.id != current.id }
+            }
         }
-    }
 
     companion object {
         fun create(app: Application): AppGraph {

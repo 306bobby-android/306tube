@@ -52,17 +52,18 @@ import tube.three06.app.ui.common.LocalMessages
 import tube.three06.app.ui.common.LocalNavigator
 import tube.three06.app.ui.login.AccountsSheet
 
-private val qualityOptions = listOf(
-    0 to "Auto",
-    2160 to "2160p",
-    1440 to "1440p",
-    1080 to "1080p",
-    720 to "720p",
-    480 to "480p",
-    360 to "360p",
-    240 to "240p",
-    144 to "144p",
-)
+private val qualityOptions =
+    listOf(
+        0 to "Auto",
+        2160 to "2160p",
+        1440 to "1440p",
+        1080 to "1080p",
+        720 to "720p",
+        480 to "480p",
+        360 to "360p",
+        240 to "240p",
+        144 to "144p",
+    )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,8 +101,7 @@ fun SettingsScreen() {
                                                 if (checked) it.sponsorBlockCategories - key else it.sponsorBlockCategories + key,
                                         )
                                     }
-                                }
-                                .padding(vertical = 4.dp),
+                                }.padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Checkbox(checked, onCheckedChange = null)
@@ -152,17 +152,45 @@ fun SettingsScreen() {
                 ChoiceRow("Theme", settings.theme, ThemeMode.entries, { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } }) {
                     update { s -> s.copy(theme = it) }
                 }
-                SwitchRow("Dynamic color", "Use wallpaper colors on Android 12+", settings.dynamicColor) { update { s -> s.copy(dynamicColor = it) } }
-                SwitchRow("Home tab", "Off hides the Home feed and starts the app on Subscriptions", settings.showHome) { update { s -> s.copy(showHome = it) } }
-                SwitchRow("Hide Shorts shelves", "Remove the Shorts rows from Home, Subscriptions, search and related videos", settings.hideShorts) { update { s -> s.copy(hideShorts = it) } }
+                SwitchRow("Dynamic color", "Use wallpaper colors on Android 12+", settings.dynamicColor) {
+                    update { s ->
+                        s.copy(dynamicColor = it)
+                    }
+                }
+                SwitchRow("Home tab", "Off hides the Home feed and starts the app on Subscriptions", settings.showHome) {
+                    update { s ->
+                        s.copy(showHome = it)
+                    }
+                }
+                SwitchRow(
+                    "Hide Shorts shelves",
+                    "Remove the Shorts rows from Home, Subscriptions, search and related videos",
+                    settings.hideShorts,
+                ) {
+                    update { s ->
+                        s.copy(hideShorts = it)
+                    }
+                }
             }
 
             item { SettingsHeader("Playback") }
             item {
-                ChoiceRow("Default quality on Wi-Fi", settings.qualityWifi, qualityOptions.map { it.first }, { q -> qualityOptions.first { it.first == q }.second }) {
+                ChoiceRow("Default quality on Wi-Fi", settings.qualityWifi, qualityOptions.map { it.first }, { q ->
+                    qualityOptions
+                        .first {
+                            it.first ==
+                                q
+                        }.second
+                }) {
                     update { s -> s.copy(qualityWifi = it) }
                 }
-                ChoiceRow("Default quality on mobile data", settings.qualityMobile, qualityOptions.map { it.first }, { q -> qualityOptions.first { it.first == q }.second }) {
+                ChoiceRow("Default quality on mobile data", settings.qualityMobile, qualityOptions.map { it.first }, { q ->
+                    qualityOptions
+                        .first {
+                            it.first ==
+                                q
+                        }.second
+                }) {
                     update { s -> s.copy(qualityMobile = it) }
                 }
                 SwitchRow("Autoplay", "Play a related video when the queue ends", settings.autoplay) {
@@ -178,8 +206,16 @@ fun SettingsScreen() {
                     update { s -> s.copy(autoplayCountdownSeconds = it) }
                     graph.player.setAutoplayCountdown(it * 1000L)
                 }
-                SwitchRow("Picture-in-picture", "Shrink the video when you leave the app", settings.pictureInPicture) { update { s -> s.copy(pictureInPicture = it) } }
-                SwitchRow("Background play", "Keep playing audio when the app is hidden", settings.backgroundPlay) { update { s -> s.copy(backgroundPlay = it) } }
+                SwitchRow("Picture-in-picture", "Shrink the video when you leave the app", settings.pictureInPicture) {
+                    update { s ->
+                        s.copy(pictureInPicture = it)
+                    }
+                }
+                SwitchRow("Background play", "Keep playing audio when the app is hidden", settings.backgroundPlay) {
+                    update { s ->
+                        s.copy(backgroundPlay = it)
+                    }
+                }
                 ChoiceRow(
                     "Resume videos",
                     settings.resume,
@@ -207,16 +243,48 @@ fun SettingsScreen() {
 
             item { SettingsHeader("Player gestures") }
             item {
-                SwitchRow("Swipe for brightness", "Drag up or down on the left half; drag to the bottom for automatic", settings.swipeBrightness) { update { s -> s.copy(swipeBrightness = it) } }
-                SwitchRow("Swipe for volume", "Drag up or down on the right half", settings.swipeVolume) { update { s -> s.copy(swipeVolume = it) } }
-                SwitchRow("Swipe to seek", "Drag left or right; a full-width drag moves 90 seconds", settings.swipeSeek) { update { s -> s.copy(swipeSeek = it) } }
-                SwitchRow("Also in the portrait player", "Off limits gestures to fullscreen, so dragging the video down still minimizes it", settings.swipeInPortrait) { update { s -> s.copy(swipeInPortrait = it) } }
-                SwitchRow("Haptic feedback", "Vibrate when a swipe starts", settings.swipeHaptics) { update { s -> s.copy(swipeHaptics = it) } }
+                SwitchRow(
+                    "Swipe for brightness",
+                    "Drag up or down on the left half; drag to the bottom for automatic",
+                    settings.swipeBrightness,
+                ) {
+                    update { s ->
+                        s.copy(swipeBrightness = it)
+                    }
+                }
+                SwitchRow("Swipe for volume", "Drag up or down on the right half", settings.swipeVolume) {
+                    update { s ->
+                        s.copy(swipeVolume = it)
+                    }
+                }
+                SwitchRow("Swipe to seek", "Drag left or right; a full-width drag moves 90 seconds", settings.swipeSeek) {
+                    update { s ->
+                        s.copy(swipeSeek = it)
+                    }
+                }
+                SwitchRow(
+                    "Also in the portrait player",
+                    "Off limits gestures to fullscreen, so dragging the video down still minimizes it",
+                    settings.swipeInPortrait,
+                ) {
+                    update { s ->
+                        s.copy(swipeInPortrait = it)
+                    }
+                }
+                SwitchRow("Haptic feedback", "Vibrate when a swipe starts", settings.swipeHaptics) {
+                    update { s ->
+                        s.copy(swipeHaptics = it)
+                    }
+                }
             }
 
             item { SettingsHeader("Downloads") }
             item {
-                SwitchRow("Download over Wi-Fi only", "Queued downloads wait for an unmetered connection", settings.downloadsWifiOnly) { update { s -> s.copy(downloadsWifiOnly = it) } }
+                SwitchRow("Download over Wi-Fi only", "Queued downloads wait for an unmetered connection", settings.downloadsWifiOnly) {
+                    update { s ->
+                        s.copy(downloadsWifiOnly = it)
+                    }
+                }
                 YtDlpRow()
             }
 
@@ -227,7 +295,11 @@ fun SettingsScreen() {
                     "When signed out, build Home from your local history and subscriptions. Off shows Trending.",
                     settings.recommenderEnabled,
                 ) { update { s -> s.copy(recommenderEnabled = it) } }
-                SwitchRow("SponsorBlock", "Skip sponsored and other crowd-marked segments", settings.sponsorBlock) { update { s -> s.copy(sponsorBlock = it) } }
+                SwitchRow("SponsorBlock", "Skip sponsored and other crowd-marked segments", settings.sponsorBlock) {
+                    update { s ->
+                        s.copy(sponsorBlock = it)
+                    }
+                }
                 ListItem(
                     headlineContent = { Text("SponsorBlock categories") },
                     supportingContent = { Text("${settings.sponsorBlockCategories.size} of ${SponsorBlockCategories.ALL.size} enabled") },
@@ -244,7 +316,17 @@ fun SettingsScreen() {
                     settings.deArrowRandomThumbnail,
                     enabled = settings.deArrow,
                 ) { update { s -> s.copy(deArrowRandomThumbnail = it) } }
-                SwitchRow("Return YouTube Dislike", "Show dislike counts from returnyoutubedislike.com", settings.returnYouTubeDislike) { update { s -> s.copy(returnYouTubeDislike = it) } }
+                SwitchRow(
+                    "Use video preview frames",
+                    "When DeArrow has no usable image, use a random YouTube preview frame or show a blank if unavailable.",
+                    settings.deArrowLocalThumbnail,
+                    enabled = settings.deArrow,
+                ) { update { s -> s.copy(deArrowLocalThumbnail = it) } }
+                SwitchRow("Return YouTube Dislike", "Show dislike counts from returnyoutubedislike.com", settings.returnYouTubeDislike) {
+                    update { s ->
+                        s.copy(returnYouTubeDislike = it)
+                    }
+                }
                 SwitchRow(
                     "Sync watch history to YouTube",
                     "When signed in, report playback so YouTube's history and resume points update",
@@ -327,19 +409,19 @@ private fun YtDlpRow() {
                 if (busy) "Updating…" else version?.let { "Version $it · tap to check for updates" } ?: "Preparing…",
             )
         },
-        modifier = Modifier.clickable(enabled = !busy) {
-            busy = true
-            scope.launch {
-                runCatching { YtDlp.update(context) }
-                    .onSuccess { updated ->
-                        message(if (updated != null) "yt-dlp updated to $updated" else "yt-dlp is up to date")
-                        if (updated != null) version = updated
-                        graph.settings.update { it.copy(ytDlpSetupDone = true) }
-                    }
-                    .onFailure { message("Update failed: ${it.message}") }
-                busy = false
-            }
-        },
+        modifier =
+            Modifier.clickable(enabled = !busy) {
+                busy = true
+                scope.launch {
+                    runCatching { YtDlp.update(context) }
+                        .onSuccess { updated ->
+                            message(if (updated != null) "yt-dlp updated to $updated" else "yt-dlp is up to date")
+                            if (updated != null) version = updated
+                            graph.settings.update { it.copy(ytDlpSetupDone = true) }
+                        }.onFailure { message("Update failed: ${it.message}") }
+                    busy = false
+                }
+            },
     )
 }
 
@@ -394,8 +476,10 @@ private fun <T> ChoiceRow(
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { onChange(option); open = false }
-                                .padding(vertical = 6.dp),
+                                .clickable {
+                                    onChange(option)
+                                    open = false
+                                }.padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(option == value, onClick = null)

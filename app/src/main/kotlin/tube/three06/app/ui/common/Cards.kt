@@ -1,5 +1,6 @@
 package tube.three06.app.ui.common
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,6 +31,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,7 +46,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import tube.three06.app.data.videoStillUrl
 import tube.three06.innertube.model.Channel
 import tube.three06.innertube.model.ChannelRef
 import tube.three06.innertube.model.Item
@@ -57,23 +65,52 @@ fun Thumb(
     isLive: Boolean = false,
     progressPercent: Int? = null,
     shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+    fallbackUrl: String? = null,
+    localVideo: Video? = null,
 ) {
+    val graph = LocalGraph.current
+    var useFallback by remember(url, fallbackUrl, localVideo?.id) { mutableStateOf(false) }
+    val stillUrl =
+        remember(localVideo?.id, localVideo?.isLive) {
+            localVideo?.takeUnless { it.isLive }?.id?.let(::videoStillUrl)
+        }
+    var stillFailed by remember(url, localVideo?.id) { mutableStateOf(false) }
+    var localFrame by remember(url, localVideo?.id, localVideo?.durationSeconds) { mutableStateOf<Bitmap?>(null) }
+    val usePreview = url == null || useFallback
+    LaunchedEffect(usePreview, stillUrl, stillFailed, localVideo?.id, localVideo?.durationSeconds) {
+        if (usePreview && (stillUrl == null || stillFailed) && localVideo != null && !localVideo.isLive) {
+            localFrame = graph.localThumbnails.frame(localVideo.id)
+        }
+    }
     Box(
         modifier
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         AsyncImage(
-            model = url,
+            model =
+                if (usePreview) {
+                    if (stillUrl != null && !stillFailed) stillUrl else localFrame ?: fallbackUrl
+                } else {
+                    url
+                },
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
+            onError = {
+                if (!usePreview && (localVideo != null || (fallbackUrl != null && fallbackUrl != url))) {
+                    useFallback = true
+                } else if (usePreview && stillUrl != null && !stillFailed) {
+                    stillFailed = true
+                }
+            },
         )
-        val label = when {
-            isLive -> "LIVE"
-            durationSeconds != null -> formatDuration(durationSeconds)
-            else -> null
-        }
+        val label =
+            when {
+                isLive -> "LIVE"
+                durationSeconds != null -> formatDuration(durationSeconds)
+                else -> null
+            }
         if (label != null) {
             Text(
                 label,
@@ -83,8 +120,7 @@ fun Thumb(
                     .background(
                         if (isLive) Color(0xCCCC0000) else Color(0xCC000000),
                         RoundedCornerShape(4.dp),
-                    )
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
+                    ).padding(horizontal = 4.dp, vertical = 1.dp),
                 color = Color.White,
                 fontWeight = FontWeight.Medium,
                 style = MaterialTheme.typography.labelSmall,
@@ -93,10 +129,11 @@ fun Thumb(
         if (progressPercent != null && progressPercent > 0) {
             LinearProgressIndicator(
                 progress = { progressPercent / 100f },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(3.dp),
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(3.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = Color(0x66FFFFFF),
             )
@@ -105,14 +142,43 @@ fun Thumb(
 }
 
 @Composable
-fun Avatar(url: String?, size: Dp = 36.dp, modifier: Modifier = Modifier) {
+private fun VideoThumb(
+    video: Video,
+    result: BrandingResult,
+    modifier: Modifier,
+    progressPercent: Int?,
+    shape: RoundedCornerShape = RoundedCornerShape(12.dp),
+) {
+    val settings by LocalGraph.current.settings.state
+        .collectAsStateWithLifecycle()
+    val localFallback = settings.deArrow && settings.deArrowLocalThumbnail
+    val url = result.branding?.thumbnailUrl ?: if (localFallback) null else video.thumbnailUrl
+    Thumb(
+        url = url,
+        modifier = modifier,
+        durationSeconds = video.durationSeconds,
+        isLive = video.isLive,
+        progressPercent = progressPercent,
+        shape = shape,
+        fallbackUrl = if (localFallback) null else video.thumbnailUrl,
+        localVideo = if (localFallback && result.loaded) video else null,
+    )
+}
+
+@Composable
+fun Avatar(
+    url: String?,
+    size: Dp = 36.dp,
+    modifier: Modifier = Modifier,
+) {
     AsyncImage(
         model = url,
         contentDescription = null,
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+        modifier =
+            modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
         contentScale = ContentScale.Crop,
     )
 }
@@ -128,20 +194,20 @@ fun VideoCard(
     onChannelClick: (() -> Unit)? = null,
 ) {
     val menu = LocalVideoMenu.current
-    val branding = rememberBranding(video)
+    val brandingResult = rememberBranding(video)
+    val branding = brandingResult.branding
     Column(
         modifier
             .fillMaxWidth()
             .combinedClickable(onLongClick = { menu(video) }, onClick = onClick)
             .padding(bottom = 12.dp),
     ) {
-        Thumb(
-            branding?.thumbnailUrl ?: video.thumbnailUrl,
+        VideoThumb(
+            video,
+            brandingResult,
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f),
-            video.durationSeconds,
-            video.isLive,
             progressPercent,
             RoundedCornerShape(0.dp),
         )
@@ -197,7 +263,8 @@ fun VideoRow(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val menu = LocalVideoMenu.current
-    val branding = rememberBranding(video)
+    val brandingResult = rememberBranding(video)
+    val branding = brandingResult.branding
     Row(
         modifier
             .fillMaxWidth()
@@ -206,13 +273,12 @@ fun VideoRow(
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Thumb(
-            branding?.thumbnailUrl ?: video.thumbnailUrl,
+        VideoThumb(
+            video,
+            brandingResult,
             Modifier
                 .width(150.dp)
                 .aspectRatio(16f / 9f),
-            video.durationSeconds,
-            video.isLive,
             progressPercent,
             RoundedCornerShape(8.dp),
         )
@@ -243,21 +309,25 @@ fun VideoRow(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CompactVideoCard(video: Video, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun CompactVideoCard(
+    video: Video,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val menu = LocalVideoMenu.current
-    val branding = rememberBranding(video)
+    val brandingResult = rememberBranding(video)
+    val branding = brandingResult.branding
     Column(
         modifier
             .width(180.dp)
             .combinedClickable(onLongClick = { menu(video) }, onClick = onClick),
     ) {
-        Thumb(
-            branding?.thumbnailUrl ?: video.thumbnailUrl,
+        VideoThumb(
+            video,
+            brandingResult,
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f),
-            video.durationSeconds,
-            video.isLive,
             video.progressPercent,
         )
         BrandedTitle(
@@ -278,7 +348,11 @@ fun CompactVideoCard(video: Video, onClick: () -> Unit, modifier: Modifier = Mod
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ShortCard(video: Video, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ShortCard(
+    video: Video,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val menu = LocalVideoMenu.current
     Column(
         modifier
@@ -310,7 +384,12 @@ fun ShortCard(video: Video, onClick: () -> Unit, modifier: Modifier = Modifier) 
 }
 
 @Composable
-fun ChannelCard(channel: Channel, onClick: () -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
+fun ChannelCard(
+    channel: Channel,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+) {
     if (compact) {
         Column(
             modifier
@@ -345,8 +424,9 @@ fun ChannelCard(channel: Channel, onClick: () -> Unit, modifier: Modifier = Modi
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                val meta = listOfNotNull(channel.handle, channel.subscriberCountText, channel.videoCountText)
-                    .joinToString(" · ")
+                val meta =
+                    listOfNotNull(channel.handle, channel.subscriberCountText, channel.videoCountText)
+                        .joinToString(" · ")
                 if (meta.isNotEmpty()) {
                     Text(
                         meta,
@@ -370,7 +450,12 @@ fun ChannelCard(channel: Channel, onClick: () -> Unit, modifier: Modifier = Modi
 }
 
 @Composable
-fun ChannelRefCard(channel: ChannelRef, onClick: () -> Unit, modifier: Modifier = Modifier, badge: Boolean = false) {
+fun ChannelRefCard(
+    channel: ChannelRef,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    badge: Boolean = false,
+) {
     Column(
         modifier
             .width(84.dp)
@@ -399,7 +484,12 @@ fun ChannelRefCard(channel: ChannelRef, onClick: () -> Unit, modifier: Modifier 
 }
 
 @Composable
-fun PlaylistCard(playlist: Playlist, onClick: () -> Unit, modifier: Modifier = Modifier, compact: Boolean = false) {
+fun PlaylistCard(
+    playlist: Playlist,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+) {
     val thumb = playlist.thumbnails.best()
     if (compact) {
         Column(
@@ -464,7 +554,11 @@ fun PlaylistCard(playlist: Playlist, onClick: () -> Unit, modifier: Modifier = M
 }
 
 @Composable
-fun PlaylistThumb(url: String?, countText: String?, modifier: Modifier) {
+fun PlaylistThumb(
+    url: String?,
+    countText: String?,
+    modifier: Modifier,
+) {
     Box(
         modifier
             .clip(RoundedCornerShape(8.dp))
@@ -503,7 +597,11 @@ fun PlaylistThumb(url: String?, countText: String?, modifier: Modifier) {
 }
 
 @Composable
-fun ShelfRow(shelf: Shelf, onItemClick: (Item) -> Unit, modifier: Modifier = Modifier) {
+fun ShelfRow(
+    shelf: Shelf,
+    onItemClick: (Item) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(
         modifier
             .fillMaxWidth()
@@ -522,27 +620,38 @@ fun ShelfRow(shelf: Shelf, onItemClick: (Item) -> Unit, modifier: Modifier = Mod
         ) {
             items(shelf.items, key = { itemKey(it) }) { item ->
                 when (item) {
-                    is Video ->
+                    is Video -> {
                         if (shelf.kind == ShelfKind.SHORTS || item.isShort) {
                             ShortCard(item, { onItemClick(item) })
                         } else {
                             CompactVideoCard(item, { onItemClick(item) })
                         }
-                    is Channel -> ChannelCard(item, { onItemClick(item) }, compact = true)
-                    is Playlist -> PlaylistCard(item, { onItemClick(item) }, compact = true)
-                    is Shelf -> Unit
+                    }
+
+                    is Channel -> {
+                        ChannelCard(item, { onItemClick(item) }, compact = true)
+                    }
+
+                    is Playlist -> {
+                        PlaylistCard(item, { onItemClick(item) }, compact = true)
+                    }
+
+                    is Shelf -> {
+                        Unit
+                    }
                 }
             }
         }
     }
 }
 
-fun itemKey(item: Item): String = when (item) {
-    is Video -> "v:${item.id}"
-    is Channel -> "c:${item.id}"
-    is Playlist -> "p:${item.id}"
-    is Shelf -> "s:${item.title}:${item.items.size}:${item.hashCode()}"
-}
+fun itemKey(item: Item): String =
+    when (item) {
+        is Video -> "v:${item.id}"
+        is Channel -> "c:${item.id}"
+        is Playlist -> "p:${item.id}"
+        is Shelf -> "s:${item.title}:${item.items.size}:${item.hashCode()}"
+    }
 
 @Composable
 fun ItemView(
@@ -553,15 +662,26 @@ fun ItemView(
 ) {
     val nav = LocalNavigator.current
     when (item) {
-        is Video -> VideoCard(
-            item,
-            { onClick(item) },
-            progressPercent = progress[item.id] ?: item.progressPercent,
-            reason = reasonOf(item),
-            onChannelClick = item.channel?.id?.let { id -> { nav.openChannel(id) } },
-        )
-        is Channel -> ChannelCard(item, { onClick(item) })
-        is Playlist -> PlaylistCard(item, { onClick(item) })
-        is Shelf -> ShelfRow(item, onClick)
+        is Video -> {
+            VideoCard(
+                item,
+                { onClick(item) },
+                progressPercent = progress[item.id] ?: item.progressPercent,
+                reason = reasonOf(item),
+                onChannelClick = item.channel?.id?.let { id -> { nav.openChannel(id) } },
+            )
+        }
+
+        is Channel -> {
+            ChannelCard(item, { onClick(item) })
+        }
+
+        is Playlist -> {
+            PlaylistCard(item, { onClick(item) })
+        }
+
+        is Shelf -> {
+            ShelfRow(item, onClick)
+        }
     }
 }

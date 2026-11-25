@@ -18,6 +18,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import tube.three06.innertube.internal.applyAbout
+import tube.three06.innertube.internal.bool
 import tube.three06.innertube.internal.browseIdOf
 import tube.three06.innertube.internal.channelAboutContinuation
 import tube.three06.innertube.internal.channelTabKind
@@ -27,7 +28,6 @@ import tube.three06.innertube.internal.execute
 import tube.three06.innertube.internal.findAll
 import tube.three06.innertube.internal.findFirst
 import tube.three06.innertube.internal.get
-import tube.three06.innertube.internal.bool
 import tube.three06.innertube.internal.int
 import tube.three06.innertube.internal.isLoginPrompt
 import tube.three06.innertube.internal.isUnavailablePrompt
@@ -84,7 +84,6 @@ class InnerTubeClient(
     override val session: Session,
     private val http: OkHttpClient = defaultHttp(),
 ) : YouTube {
-
     private val bootstrapMutex = Mutex()
 
     @Volatile
@@ -121,16 +120,19 @@ class InnerTubeClient(
     private suspend fun bootstrapFromPage() {
         val creds = session.current
         val locale = session.locale
-        val cookie = buildString {
-            append("SOCS=CAI; PREF=hl=${locale.hl}&gl=${locale.gl}")
-            creds.cookie?.takeIf { it.isNotBlank() }?.let { append("; ").append(it) }
-        }
-        val request = Request.Builder()
-            .url("$BASE/?hl=${locale.hl}&gl=${locale.gl}")
-            .header("User-Agent", Clients.WEB_USER_AGENT)
-            .header("Accept-Language", "${locale.hl},en;q=0.8")
-            .header("Cookie", cookie)
-            .build()
+        val cookie =
+            buildString {
+                append("SOCS=CAI; PREF=hl=${locale.hl}&gl=${locale.gl}")
+                creds.cookie?.takeIf { it.isNotBlank() }?.let { append("; ").append(it) }
+            }
+        val request =
+            Request
+                .Builder()
+                .url("$BASE/?hl=${locale.hl}&gl=${locale.gl}")
+                .header("User-Agent", Clients.WEB_USER_AGENT)
+                .header("Accept-Language", "${locale.hl},en;q=0.8")
+                .header("Cookie", cookie)
+                .build()
         val res = http.execute(request)
         if (res.code != 200) return
         val body = res.body
@@ -157,36 +159,43 @@ class InnerTubeClient(
         session.update { it.copy(visitorData = it.visitorData ?: visitor) }
     }
 
-    private fun context(client: ClientInfo, creds: Credentials): JsonObject = buildJsonObject {
-        putJsonObject("client") {
-            put("clientName", client.clientName)
-            put("clientVersion", client.clientVersion)
-            put("hl", session.locale.hl)
-            put("gl", session.locale.gl)
-            put("userAgent", client.userAgent)
-            client.osName?.let { put("osName", it) }
-            client.osVersion?.let { put("osVersion", it) }
-            client.deviceMake?.let { put("deviceMake", it) }
-            client.deviceModel?.let { put("deviceModel", it) }
-            client.androidSdkVersion?.let { put("androidSdkVersion", it) }
-            client.platform?.let { put("platform", it) }
-            creds.visitorData?.let { put("visitorData", it) }
-            put("timeZone", "UTC")
-            put("utcOffsetMinutes", 0)
-        }
-        putJsonObject("user") {
-            put("lockedSafetyMode", false)
-            if (creds.signedIn && client.supportsCookies) {
-                creds.dataSyncId?.let { put("onBehalfOfUser", it) }
+    private fun context(
+        client: ClientInfo,
+        creds: Credentials,
+    ): JsonObject =
+        buildJsonObject {
+            putJsonObject("client") {
+                put("clientName", client.clientName)
+                put("clientVersion", client.clientVersion)
+                put("hl", session.locale.hl)
+                put("gl", session.locale.gl)
+                put("userAgent", client.userAgent)
+                client.osName?.let { put("osName", it) }
+                client.osVersion?.let { put("osVersion", it) }
+                client.deviceMake?.let { put("deviceMake", it) }
+                client.deviceModel?.let { put("deviceModel", it) }
+                client.androidSdkVersion?.let { put("androidSdkVersion", it) }
+                client.platform?.let { put("platform", it) }
+                creds.visitorData?.let { put("visitorData", it) }
+                put("timeZone", "UTC")
+                put("utcOffsetMinutes", 0)
+            }
+            putJsonObject("user") {
+                put("lockedSafetyMode", false)
+                if (creds.signedIn && client.supportsCookies) {
+                    creds.dataSyncId?.let { put("onBehalfOfUser", it) }
+                }
+            }
+            putJsonObject("request") {
+                put("useSsl", true)
+                putJsonArray("internalExperimentFlags") { }
             }
         }
-        putJsonObject("request") {
-            put("useSsl", true)
-            putJsonArray("internalExperimentFlags") { }
-        }
-    }
 
-    private fun Request.Builder.applyHeaders(client: ClientInfo, creds: Credentials): Request.Builder {
+    private fun Request.Builder.applyHeaders(
+        client: ClientInfo,
+        creds: Credentials,
+    ): Request.Builder {
         header("User-Agent", client.userAgent)
         header("Accept-Language", "${session.locale.hl},en;q=0.8")
         header("X-YouTube-Client-Name", client.clientId.toString())
@@ -216,24 +225,28 @@ class InnerTubeClient(
     ): JsonElement {
         if (bootstrap) ensureBootstrapped()
         val creds = session.current
-        val payload = buildJsonObject {
-            put("context", context(client, creds))
-            body.forEach { (k, v) -> put(k, v) }
-        }
-        val request = Request.Builder()
-            .url("$API$endpoint?prettyPrint=false")
-            .post(payload.toString().toRequestBody(JSON_MEDIA))
-            .applyHeaders(client, creds)
-            .build()
+        val payload =
+            buildJsonObject {
+                put("context", context(client, creds))
+                body.forEach { (k, v) -> put(k, v) }
+            }
+        val request =
+            Request
+                .Builder()
+                .url("$API$endpoint?prettyPrint=false")
+                .post(payload.toString().toRequestBody(JSON_MEDIA))
+                .applyHeaders(client, creds)
+                .build()
         val res = http.execute(request)
         if (res.code == 401 || res.code == 403) {
             throw LoginRequiredException("$endpoint: HTTP ${res.code}")
         }
-        val parsed = try {
-            json.parseToJsonElement(res.body)
-        } catch (e: Exception) {
-            throw ParseException("$endpoint: response is not JSON (HTTP ${res.code}): ${res.body.take(200)}", e)
-        }
+        val parsed =
+            try {
+                json.parseToJsonElement(res.body)
+            } catch (e: Exception) {
+                throw ParseException("$endpoint: response is not JSON (HTTP ${res.code}): ${res.body.take(200)}", e)
+            }
         if (res.code >= 400) {
             if (requestedLoginError(parsed)) {
                 throw LoginRequiredException("$endpoint: ${parsed["error"]["message"].str}")
@@ -247,7 +260,10 @@ class InnerTubeClient(
         return parsed
     }
 
-    private inline fun <T> parsing(what: String, block: () -> T): T =
+    private inline fun <T> parsing(
+        what: String,
+        block: () -> T,
+    ): T =
         try {
             block()
         } catch (e: InnerTubeException) {
@@ -265,20 +281,25 @@ class InnerTubeClient(
         params: String? = null,
         continuation: String? = null,
         query: String? = null,
-    ): JsonElement = call(
-        "browse",
-        buildJsonObject {
-            if (continuation != null) {
-                put("continuation", continuation)
-            } else {
-                put("browseId", browseId ?: error("browseId or continuation required"))
-                params?.let { put("params", it) }
-                query?.let { put("query", it) }
-            }
-        },
-    )
+    ): JsonElement =
+        call(
+            "browse",
+            buildJsonObject {
+                if (continuation != null) {
+                    put("continuation", continuation)
+                } else {
+                    put("browseId", browseId ?: error("browseId or continuation required"))
+                    params?.let { put("params", it) }
+                    query?.let { put("query", it) }
+                }
+            },
+        )
 
-    suspend fun browse(browseId: String, params: String? = null, continuation: String? = null): Page<Item> {
+    suspend fun browse(
+        browseId: String,
+        params: String? = null,
+        continuation: String? = null,
+    ): Page<Item> {
         val res = browseRaw(browseId, params, continuation)
         return parsing("browse $browseId") {
             if (browseId in ACCOUNT_FEEDS && isLoginPrompt(res)) {
@@ -288,8 +309,7 @@ class InnerTubeClient(
         }
     }
 
-    override suspend fun home(continuation: String?): Page<Item> =
-        browse("FEwhat_to_watch", continuation = continuation)
+    override suspend fun home(continuation: String?): Page<Item> = browse("FEwhat_to_watch", continuation = continuation)
 
     override suspend fun trending(continuation: String?): Page<Item> {
         if (continuation != null) return browse("FEtrending", continuation = continuation)
@@ -299,19 +319,23 @@ class InnerTubeClient(
             if (e.httpCode != 400) throw e
             Page(
                 coroutineScope {
-                    TRENDING_FALLBACK.map { (title, id) ->
-                        async {
-                            val videos = try {
-                                browse(id).items
-                                    .flatMap { if (it is Shelf) it.items else listOf(it) }
-                                    .filterIsInstance<Video>()
-                                    .take(24)
-                            } catch (_: ApiException) {
-                                emptyList()
+                    TRENDING_FALLBACK
+                        .map { (title, id) ->
+                            async {
+                                val videos =
+                                    try {
+                                        browse(id)
+                                            .items
+                                            .flatMap { if (it is Shelf) it.items else listOf(it) }
+                                            .filterIsInstance<Video>()
+                                            .take(24)
+                                    } catch (_: ApiException) {
+                                        emptyList()
+                                    }
+                                Shelf(title, videos)
                             }
-                            Shelf(title, videos)
-                        }
-                    }.map { it.await() }.filter { it.items.isNotEmpty() }
+                        }.map { it.await() }
+                        .filter { it.items.isNotEmpty() }
                 },
                 null,
             )
@@ -327,14 +351,15 @@ class InnerTubeClient(
                 if (e.httpCode != 400) throw e
             }
         }
-        val seed = call(
-            "reel/reel_item_watch",
-            buildJsonObject {
-                put("params", "CA8%3D")
-                put("inputType", "REEL_WATCH_INPUT_TYPE_SEEDLESS")
-                put("disablePlayerResponse", true)
-            },
-        )
+        val seed =
+            call(
+                "reel/reel_item_watch",
+                buildJsonObject {
+                    put("params", "CA8%3D")
+                    put("inputType", "REEL_WATCH_INPUT_TYPE_SEEDLESS")
+                    put("disablePlayerResponse", true)
+                },
+            )
         return parsing("shorts seed") {
             val first = seed["replacementEndpoint"]["reelWatchEndpoint"]?.let { reelEntryVideo(it, seed["overlay"]) }
             val sequence = seed["sequenceContinuation"].str
@@ -358,29 +383,35 @@ class InnerTubeClient(
         }
     }
 
-    private fun reelEntryVideo(endpoint: JsonElement, overlay: JsonElement?): Video? {
+    private fun reelEntryVideo(
+        endpoint: JsonElement,
+        overlay: JsonElement?,
+    ): Video? {
         val videoId = endpoint["videoId"].str ?: return null
         val details = endpoint["unserializedPrefetchData"]["playerResponse"]["videoDetails"]
         val header = (overlay ?: endpoint["overlay"]).findFirst("reelPlayerHeaderRenderer")
         val channelBar = (overlay ?: endpoint["overlay"]).findFirst("reelChannelBarViewModel")
-        val title = details["title"].str
-            ?: header["reelTitleText"].text
-            ?: (overlay ?: endpoint["overlay"]).findFirst("shortsVideoTitleViewModel")["text"].text
-            ?: ""
-        val channelName = details["author"].str
-            ?: header["channelTitleText"].text
-            ?: channelBar["channelName"].text
-        val channel = channelName?.let { name ->
-            ChannelRef(
-                details["channelId"].str
-                    ?: browseIdOf(header["channelNavigationEndpoint"])
-                    ?: browseIdOf(channelBar),
-                name,
-                thumbnails(header["channelThumbnail"]).ifEmpty {
-                    thumbnails(channelBar.findFirst("avatarViewModel")["image"])
-                },
-            )
-        }
+        val title =
+            details["title"].str
+                ?: header["reelTitleText"].text
+                ?: (overlay ?: endpoint["overlay"]).findFirst("shortsVideoTitleViewModel")["text"].text
+                ?: ""
+        val channelName =
+            details["author"].str
+                ?: header["channelTitleText"].text
+                ?: channelBar["channelName"].text
+        val channel =
+            channelName?.let { name ->
+                ChannelRef(
+                    details["channelId"].str
+                        ?: browseIdOf(header["channelNavigationEndpoint"])
+                        ?: browseIdOf(channelBar),
+                    name,
+                    thumbnails(header["channelThumbnail"]).ifEmpty {
+                        thumbnails(channelBar.findFirst("avatarViewModel")["image"])
+                    },
+                )
+            }
         return Video(
             id = videoId,
             title = title,
@@ -407,8 +438,10 @@ class InnerTubeClient(
         requireSignedIn("library")
         val items = browse("FElibrary").items
         val flat = items.flatMap { if (it is Shelf) it.items else listOf(it) }
-        val history = items.filterIsInstance<Shelf>()
-            .firstOrNull { it.title?.contains("History", ignoreCase = true) == true }
+        val history =
+            items
+                .filterIsInstance<Shelf>()
+                .firstOrNull { it.title?.contains("History", ignoreCase = true) == true }
         val playlists = flat.filterIsInstance<Playlist>()
         return LibraryPage(
             history = history?.items?.filterIsInstance<Video>() ?: emptyList(),
@@ -433,43 +466,58 @@ class InnerTubeClient(
         return parsing("guide") { parseGuideSubscriptions(res) }
     }
 
-    override suspend fun search(query: String, filter: SearchFilter, continuation: String?): Page<Item> {
-        val res = call(
-            "search",
-            buildJsonObject {
-                if (continuation != null) {
-                    put("continuation", continuation)
-                } else {
-                    put("query", query)
-                    encodeSearchParams(filter)?.let { put("params", it) }
-                }
-            },
-        )
+    override suspend fun search(
+        query: String,
+        filter: SearchFilter,
+        continuation: String?,
+    ): Page<Item> {
+        val res =
+            call(
+                "search",
+                buildJsonObject {
+                    if (continuation != null) {
+                        put("continuation", continuation)
+                    } else {
+                        put("query", query)
+                        encodeSearchParams(filter)?.let { put("params", it) }
+                    }
+                },
+            )
         return parsing("search") { pageOf(res) }
     }
 
     override suspend fun searchSuggestions(query: String): List<String> {
         if (query.isBlank()) return emptyList()
-        val url = "https://suggestqueries-clients6.youtube.com/complete/search?client=youtube&ds=yt&xhr=t" +
-            "&hl=${session.locale.hl}&gl=${session.locale.gl}&q=${URLEncoder.encode(query, "UTF-8")}"
-        val res = http.execute(Request.Builder().url(url).header("User-Agent", Clients.WEB_USER_AGENT).build())
+        val url =
+            "https://suggestqueries-clients6.youtube.com/complete/search?client=youtube&ds=yt&xhr=t" +
+                "&hl=${session.locale.hl}&gl=${session.locale.gl}&q=${URLEncoder.encode(query, "UTF-8")}"
+        val res =
+            http.execute(
+                Request
+                    .Builder()
+                    .url(url)
+                    .header("User-Agent", Clients.WEB_USER_AGENT)
+                    .build(),
+            )
         if (res.code != 200) throw ApiException(res.code, null, "suggestions: HTTP ${res.code}")
         return parsing("suggestions") {
-            val text = res.body.trim().let {
-                if (it.startsWith("window.")) it.substringAfter('(').substringBeforeLast(')') else it
-            }
+            val text =
+                res.body.trim().let {
+                    if (it.startsWith("window.")) it.substringAfter('(').substringBeforeLast(')') else it
+                }
             json.parseToJsonElement(text)[1].list.mapNotNull { it[0].str ?: it.str }
         }
     }
 
     private suspend fun resolveChannelId(idOrHandle: String): String {
         if (idOrHandle.startsWith("UC") && idOrHandle.length == 24) return idOrHandle
-        val url = when {
-            idOrHandle.startsWith("http") -> idOrHandle
-            idOrHandle.startsWith("@") -> "$BASE/$idOrHandle"
-            idOrHandle.startsWith("/") -> "$BASE$idOrHandle"
-            else -> "$BASE/@$idOrHandle"
-        }
+        val url =
+            when {
+                idOrHandle.startsWith("http") -> idOrHandle
+                idOrHandle.startsWith("@") -> "$BASE/$idOrHandle"
+                idOrHandle.startsWith("/") -> "$BASE$idOrHandle"
+                else -> "$BASE/@$idOrHandle"
+            }
         return (resolve(url) as? Endpoint.Browse)?.browseId?.takeIf { it.startsWith("UC") }
             ?: throw NotFoundException("No channel for $idOrHandle")
     }
@@ -528,7 +576,10 @@ class InnerTubeClient(
         }
     }
 
-    override suspend fun playlist(playlistId: String, continuation: String?): PlaylistPage {
+    override suspend fun playlist(
+        playlistId: String,
+        continuation: String?,
+    ): PlaylistPage {
         val id = playlistId.removePrefix("VL")
         if (continuation != null) {
             val res = browseRaw(null, continuation = continuation)
@@ -562,11 +613,12 @@ class InnerTubeClient(
     }
 
     override suspend fun resolve(url: String): Endpoint {
-        val normalized = when {
-            url.startsWith("@") -> "$BASE/$url"
-            url.startsWith("youtu") || url.startsWith("www.") || url.startsWith("m.") -> "https://$url"
-            else -> url
-        }
+        val normalized =
+            when {
+                url.startsWith("@") -> "$BASE/$url"
+                url.startsWith("youtu") || url.startsWith("www.") || url.startsWith("m.") -> "https://$url"
+                else -> url
+            }
         val httpUrl = normalized.toHttpUrlOrNull() ?: return Endpoint.Url(url)
         val host = httpUrl.host.removePrefix("www.").removePrefix("m.")
         val segments = httpUrl.pathSegments.filter { it.isNotEmpty() }
@@ -585,23 +637,43 @@ class InnerTubeClient(
         if (host == "youtu.be") watch(segments.firstOrNull())?.let { return it }
         if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
             when (segments.firstOrNull()) {
-                null -> return Endpoint.Browse("FEwhat_to_watch")
-                "watch" -> watch(q("v"))?.let { return it }
-                "shorts", "embed", "live", "v", "e" -> watch(segments.getOrNull(1))?.let { return it }
-                "playlist" -> q("list")?.let { return Endpoint.Browse("VL$it") }
-                "results" -> q("search_query")?.let { return Endpoint.Search(it, q("sp")) }
-                "channel" -> segments.getOrNull(1)?.takeIf { it.startsWith("UC") }?.let { return Endpoint.Browse(it) }
-                "feed" -> segments.getOrNull(1)?.let { feed ->
-                    return Endpoint.Browse(
-                        when (feed) {
-                            "subscriptions" -> "FEsubscriptions"
-                            "trending" -> "FEtrending"
-                            "history" -> "FEhistory"
-                            "library" -> "FElibrary"
-                            "playlists" -> "FEplaylist_aggregation"
-                            else -> "FEwhat_to_watch"
-                        },
-                    )
+                null -> {
+                    return Endpoint.Browse("FEwhat_to_watch")
+                }
+
+                "watch" -> {
+                    watch(q("v"))?.let { return it }
+                }
+
+                "shorts", "embed", "live", "v", "e" -> {
+                    watch(segments.getOrNull(1))?.let { return it }
+                }
+
+                "playlist" -> {
+                    q("list")?.let { return Endpoint.Browse("VL$it") }
+                }
+
+                "results" -> {
+                    q("search_query")?.let { return Endpoint.Search(it, q("sp")) }
+                }
+
+                "channel" -> {
+                    segments.getOrNull(1)?.takeIf { it.startsWith("UC") }?.let { return Endpoint.Browse(it) }
+                }
+
+                "feed" -> {
+                    segments.getOrNull(1)?.let { feed ->
+                        return Endpoint.Browse(
+                            when (feed) {
+                                "subscriptions" -> "FEsubscriptions"
+                                "trending" -> "FEtrending"
+                                "history" -> "FEhistory"
+                                "library" -> "FElibrary"
+                                "playlists" -> "FEplaylist_aggregation"
+                                else -> "FEwhat_to_watch"
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -640,17 +712,22 @@ class InnerTubeClient(
         return (h.toLongOrNull() ?: 0) * 3600 + (m.toLongOrNull() ?: 0) * 60 + (s.toLongOrNull() ?: 0)
     }
 
-    override suspend fun video(videoId: String, playlistId: String?, playlistIndex: Int?): VideoDetails {
-        val res = call(
-            "next",
-            buildJsonObject {
-                put("videoId", videoId)
-                playlistId?.let { put("playlistId", it) }
-                playlistIndex?.let { put("playlistIndex", it) }
-                put("contentCheckOk", true)
-                put("racyCheckOk", true)
-            },
-        )
+    override suspend fun video(
+        videoId: String,
+        playlistId: String?,
+        playlistIndex: Int?,
+    ): VideoDetails {
+        val res =
+            call(
+                "next",
+                buildJsonObject {
+                    put("videoId", videoId)
+                    playlistId?.let { put("playlistId", it) }
+                    playlistIndex?.let { put("playlistIndex", it) }
+                    put("contentCheckOk", true)
+                    put("racyCheckOk", true)
+                },
+            )
         return parsing("next $videoId") {
             isUnavailablePrompt(res)?.let { throw NotFoundException("$videoId: $it") }
             parseVideoDetails(res, videoId)
@@ -669,8 +746,11 @@ class InnerTubeClient(
 
     override suspend fun commentReplies(continuation: String): Page<Comment> = comments(continuation)
 
-    override suspend fun player(videoId: String, client: ClientKind, playlistId: String?): PlayerResponse =
-        player(videoId, client, playlistId, null)
+    override suspend fun player(
+        videoId: String,
+        client: ClientKind,
+        playlistId: String?,
+    ): PlayerResponse = player(videoId, client, playlistId, null)
 
     suspend fun player(
         videoId: String,
@@ -683,23 +763,24 @@ class InnerTubeClient(
         ensureBootstrapped()
         val info = Clients.get(client)
         val sts = signatureTimestamp ?: this.signatureTimestamp?.takeIf { info.wantsSignatureTimestamp }
-        val res = call(
-            "player",
-            buildJsonObject {
-                put("videoId", videoId)
-                playlistId?.let { put("playlistId", it) }
-                put("contentCheckOk", true)
-                put("racyCheckOk", true)
-                putJsonObject("playbackContext") {
-                    putJsonObject("contentPlaybackContext") {
-                        put("html5Preference", "HTML5_PREF_WANTS")
-                        sts?.let { put("signatureTimestamp", it) }
+        val res =
+            call(
+                "player",
+                buildJsonObject {
+                    put("videoId", videoId)
+                    playlistId?.let { put("playlistId", it) }
+                    put("contentCheckOk", true)
+                    put("racyCheckOk", true)
+                    putJsonObject("playbackContext") {
+                        putJsonObject("contentPlaybackContext") {
+                            put("html5Preference", "HTML5_PREF_WANTS")
+                            sts?.let { put("signatureTimestamp", it) }
+                        }
                     }
-                }
-                poToken?.let { putJsonObject("serviceIntegrityDimensions") { put("poToken", it) } }
-            },
-            info,
-        )
+                    poToken?.let { putJsonObject("serviceIntegrityDimensions") { put("poToken", it) } }
+                },
+                info,
+            )
         return parsing("player $videoId") {
             val response = parsePlayer(res, videoId, info.clientName)
             if (response.playability.status == "ERROR") {
@@ -719,32 +800,42 @@ class InnerTubeClient(
         if (!session.current.signedIn) return emptyList()
         ensureBootstrapped()
         val creds = session.current.copy(dataSyncId = null)
-        val request = Request.Builder()
-            .url("$BASE/getAccountSwitcherEndpoint")
-            .applyHeaders(Clients.WEB, creds)
-            .build()
-        val fromSwitcher = runCatching {
-            val res = http.execute(request)
-            check(res.code == 200) { "HTTP ${res.code}" }
-            // Body starts with the anti-XSSI guard.
-            parseAccountIdentities(json.parseToJsonElement(res.body.removePrefix(")]}'").trimStart()))
-        }.getOrDefault(emptyList())
+        val request =
+            Request
+                .Builder()
+                .url("$BASE/getAccountSwitcherEndpoint")
+                .applyHeaders(Clients.WEB, creds)
+                .build()
+        val fromSwitcher =
+            runCatching {
+                val res = http.execute(request)
+                check(res.code == 200) { "HTTP ${res.code}" }
+                // Body starts with the anti-XSSI guard.
+                parseAccountIdentities(json.parseToJsonElement(res.body.removePrefix(")]}'").trimStart()))
+            }.getOrDefault(emptyList())
         if (fromSwitcher.isNotEmpty()) return fromSwitcher
         val res = call("account/accounts_list", buildJsonObject { })
         return parsing("accounts_list") { parseAccountIdentities(res) }
     }
 
-    override suspend fun setLike(videoId: String, status: LikeStatus) {
+    override suspend fun setLike(
+        videoId: String,
+        status: LikeStatus,
+    ) {
         requireSignedIn("like")
-        val endpoint = when (status) {
-            LikeStatus.LIKE -> "like/like"
-            LikeStatus.DISLIKE -> "like/dislike"
-            LikeStatus.INDIFFERENT -> "like/removelike"
-        }
+        val endpoint =
+            when (status) {
+                LikeStatus.LIKE -> "like/like"
+                LikeStatus.DISLIKE -> "like/dislike"
+                LikeStatus.INDIFFERENT -> "like/removelike"
+            }
         call(endpoint, buildJsonObject { putJsonObject("target") { put("videoId", videoId) } })
     }
 
-    override suspend fun subscribe(channelId: String, subscribed: Boolean) {
+    override suspend fun subscribe(
+        channelId: String,
+        subscribed: Boolean,
+    ) {
         requireSignedIn("subscribe")
         call(
             if (subscribed) "subscription/subscribe" else "subscription/unsubscribe",
@@ -755,18 +846,23 @@ class InnerTubeClient(
         )
     }
 
-    override suspend fun createPlaylist(title: String, videoIds: List<String>, privacy: PlaylistPrivacy): String {
+    override suspend fun createPlaylist(
+        title: String,
+        videoIds: List<String>,
+        privacy: PlaylistPrivacy,
+    ): String {
         requireSignedIn("create playlist")
-        val res = call(
-            "playlist/create",
-            buildJsonObject {
-                put("title", title)
-                put("privacyStatus", privacy.name)
-                if (videoIds.isNotEmpty()) {
-                    put("videoIds", buildJsonArray { videoIds.forEach { add(JsonPrimitive(it)) } })
-                }
-            },
-        )
+        val res =
+            call(
+                "playlist/create",
+                buildJsonObject {
+                    put("title", title)
+                    put("privacyStatus", privacy.name)
+                    if (videoIds.isNotEmpty()) {
+                        put("videoIds", buildJsonArray { videoIds.forEach { add(JsonPrimitive(it)) } })
+                    }
+                },
+            )
         return res["playlistId"].str ?: throw ParseException("playlist/create returned no playlistId")
     }
 
@@ -775,7 +871,10 @@ class InnerTubeClient(
         call("playlist/delete", buildJsonObject { put("playlistId", playlistId.removePrefix("VL")) })
     }
 
-    override suspend fun addToPlaylist(playlistId: String, videoId: String) {
+    override suspend fun addToPlaylist(
+        playlistId: String,
+        videoId: String,
+    ) {
         requireSignedIn("add to playlist")
         editPlaylist(
             playlistId,
@@ -786,7 +885,11 @@ class InnerTubeClient(
         )
     }
 
-    override suspend fun removeFromPlaylist(playlistId: String, videoId: String, setVideoId: String?) {
+    override suspend fun removeFromPlaylist(
+        playlistId: String,
+        videoId: String,
+        setVideoId: String?,
+    ) {
         requireSignedIn("remove from playlist")
         editPlaylist(
             playlistId,
@@ -799,19 +902,28 @@ class InnerTubeClient(
                     put("removedVideoId", videoId)
                 }
             },
+            confirmRemoval = true,
         )
     }
 
-    private suspend fun editPlaylist(playlistId: String, action: JsonObject) {
-        val res = call(
-            "browse/edit_playlist",
-            buildJsonObject {
-                put("playlistId", playlistId.removePrefix("VL"))
-                putJsonArray("actions") { add(action) }
-            },
-        )
+    private suspend fun editPlaylist(
+        playlistId: String,
+        action: JsonObject,
+        confirmRemoval: Boolean = false,
+    ) {
+        val res =
+            call(
+                "browse/edit_playlist",
+                buildJsonObject {
+                    put("playlistId", playlistId.removePrefix("VL"))
+                    putJsonArray("actions") { add(action) }
+                    if (confirmRemoval && playlistId.removePrefix("VL") == "WL") put("params", "CAFAAQ%3D%3D")
+                },
+            )
         val status = res["status"].str
-        if (status != null && status != "STATUS_SUCCEEDED") throw InnerTubeException("edit_playlist: $status")
+        if ((confirmRemoval && status != "STATUS_SUCCEEDED") || (status != null && status != "STATUS_SUCCEEDED")) {
+            throw InnerTubeException("edit_playlist: ${status ?: "removal not confirmed"}")
+        }
     }
 
     override suspend fun removeFromHistory(videoId: String) {
@@ -821,10 +933,13 @@ class InnerTubeClient(
             val res = browseRaw("FEhistory", continuation = continuation)
             if (isLoginPrompt(res)) throw LoginRequiredException("FEhistory needs a signed-in session")
             val candidates = receivedItems(res).ifEmpty { listOfNotNull(selectedTab(res)["content"]) }
-            val token = candidates.asSequence()
-                .flatMap { it.findAll("videoRenderer").asSequence() + it.findAll("lockupViewModel").asSequence() }
-                .firstOrNull { (it["videoId"].str ?: it["contentId"].str) == videoId }
-                ?.findFirst("feedbackToken").str
+            val token =
+                candidates
+                    .asSequence()
+                    .flatMap { it.findAll("videoRenderer").asSequence() + it.findAll("lockupViewModel").asSequence() }
+                    .firstOrNull { (it["videoId"].str ?: it["contentId"].str) == videoId }
+                    ?.findFirst("feedbackToken")
+                    .str
             if (token != null) {
                 call(
                     "feedback",
@@ -850,7 +965,10 @@ class InnerTubeClient(
         ensureBootstrapped()
         val creds = session.current
 
-        suspend fun ping(base: String?, watchtime: Boolean) {
+        suspend fun ping(
+            base: String?,
+            watchtime: Boolean,
+        ) {
             val url = base?.toHttpUrlOrNull()?.newBuilder() ?: return
             url.setQueryParameter("ver", "2")
             url.setQueryParameter("cpn", cpn)
@@ -861,7 +979,14 @@ class InnerTubeClient(
                 url.setQueryParameter("st", "0")
                 url.setQueryParameter("et", positionSeconds.toString())
             }
-            val res = http.execute(Request.Builder().url(url.build()).applyHeaders(Clients.WEB, creds).build())
+            val res =
+                http.execute(
+                    Request
+                        .Builder()
+                        .url(url.build())
+                        .applyHeaders(Clients.WEB, creds)
+                        .build(),
+                )
             if (res.code == 401 || res.code == 403) throw LoginRequiredException("videostats: HTTP ${res.code}")
             if (res.code >= 400) throw ApiException(res.code, null, "videostats: HTTP ${res.code}")
         }
@@ -875,26 +1000,30 @@ class InnerTubeClient(
         private const val API = "https://www.youtube.com/youtubei/v1/"
         private val JSON_MEDIA = "application/json".toMediaType()
 
-        fun defaultHttp(): OkHttpClient = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
+        fun defaultHttp(): OkHttpClient =
+            OkHttpClient
+                .Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build()
 
         private val ACCOUNT_FEEDS = setOf("FEsubscriptions", "FEhistory", "FElibrary", "FEplaylist_aggregation")
 
-        private val TRENDING_FALLBACK = listOf(
-            "Music" to "UC-9-kyTW8ZkZNDHQJ6FgpwQ",
-            "Gaming" to "UCOpNcN46UbXVtpKMrmU4Abg",
-            "Live" to "UC4R8DWoMoI7CAwX8_LjQHig",
-        )
+        private val TRENDING_FALLBACK =
+            listOf(
+                "Music" to "UC-9-kyTW8ZkZNDHQJ6FgpwQ",
+                "Gaming" to "UCOpNcN46UbXVtpKMrmU4Abg",
+                "Live" to "UC4R8DWoMoI7CAwX8_LjQHig",
+            )
 
-        private val TAB_PARAMS = mapOf(
-            ChannelTabKind.VIDEOS to "EgZ2aWRlb3PyBgQKAjoA",
-            ChannelTabKind.SHORTS to "EgZzaG9ydHPyBgUKA5oBAA%3D%3D",
-            ChannelTabKind.LIVE to "EgdzdHJlYW1z8gYECgJ6AA%3D%3D",
-            ChannelTabKind.PLAYLISTS to "EglwbGF5bGlzdHPyBgQKAkIA",
-            ChannelTabKind.COMMUNITY to "Egljb21tdW5pdHnyBgQKAkoA",
-        )
+        private val TAB_PARAMS =
+            mapOf(
+                ChannelTabKind.VIDEOS to "EgZ2aWRlb3PyBgQKAjoA",
+                ChannelTabKind.SHORTS to "EgZzaG9ydHPyBgUKA5oBAA%3D%3D",
+                ChannelTabKind.LIVE to "EgdzdHJlYW1z8gYECgJ6AA%3D%3D",
+                ChannelTabKind.PLAYLISTS to "EglwbGF5bGlzdHPyBgQKAkIA",
+                ChannelTabKind.COMMUNITY to "Egljb21tdW5pdHnyBgQKAkoA",
+            )
     }
 }
 

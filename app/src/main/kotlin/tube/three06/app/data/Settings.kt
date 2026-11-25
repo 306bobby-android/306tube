@@ -26,26 +26,28 @@ enum class ResumeMode { ALWAYS, ASK, NEVER }
 enum class StreamResolverChoice { YTDLP, EXTRACTOR }
 
 object SponsorBlockCategories {
-    val ALL: List<Pair<String, String>> = listOf(
-        "sponsor" to "Sponsor",
-        "selfpromo" to "Unpaid / self promotion",
-        "interaction" to "Interaction reminder",
-        "intro" to "Intermission / intro",
-        "outro" to "Endcards / credits",
-        "preview" to "Preview / recap",
-        "music_offtopic" to "Non-music section",
-        "filler" to "Filler tangent",
-    )
+    val ALL: List<Pair<String, String>> =
+        listOf(
+            "sponsor" to "Sponsor",
+            "selfpromo" to "Unpaid / self promotion",
+            "interaction" to "Interaction reminder",
+            "intro" to "Intermission / intro",
+            "outro" to "Endcards / credits",
+            "preview" to "Preview / recap",
+            "music_offtopic" to "Non-music section",
+            "filler" to "Filler tangent",
+        )
 
-    val DEFAULT: Set<String> = setOf(
-        "sponsor",
-        "selfpromo",
-        "interaction",
-        "intro",
-        "outro",
-        "preview",
-        "music_offtopic",
-    )
+    val DEFAULT: Set<String> =
+        setOf(
+            "sponsor",
+            "selfpromo",
+            "interaction",
+            "intro",
+            "outro",
+            "preview",
+            "music_offtopic",
+        )
 }
 
 data class Settings(
@@ -72,6 +74,7 @@ data class Settings(
     val sponsorBlockCategories: Set<String> = SponsorBlockCategories.DEFAULT,
     val deArrow: Boolean = false,
     val deArrowRandomThumbnail: Boolean = false,
+    val deArrowLocalThumbnail: Boolean = false,
     val showHome: Boolean = true,
     val hideShorts: Boolean = true,
     val returnYouTubeDislike: Boolean = true,
@@ -82,7 +85,10 @@ data class Settings(
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore("settings")
 
-class SettingsRepository(context: Context, scope: CoroutineScope) {
+class SettingsRepository(
+    context: Context,
+    scope: CoroutineScope,
+) {
     private val store = context.applicationContext.settingsStore
 
     private object Keys {
@@ -109,6 +115,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val sbCategories = stringSetPreferencesKey("sponsorblock_categories")
         val deArrow = booleanPreferencesKey("dearrow")
         val deArrowRandomThumbnail = booleanPreferencesKey("dearrow_random_thumbnail")
+        val deArrowLocalThumbnail = booleanPreferencesKey("dearrow_local_thumbnail")
         val showHome = booleanPreferencesKey("show_home")
         val hideShorts = booleanPreferencesKey("hide_shorts")
         val ryd = booleanPreferencesKey("ryd")
@@ -138,14 +145,16 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             swipeHaptics = p[Keys.swipeHaptics] ?: d.swipeHaptics,
             downloadsWifiOnly = p[Keys.downloadsWifiOnly] ?: d.downloadsWifiOnly,
             ytDlpSetupDone = p[Keys.ytDlpSetupDone] ?: d.ytDlpSetupDone,
-            resolver = p[Keys.resolver]?.let { runCatching { StreamResolverChoice.valueOf(it) }.getOrNull() }
-                ?: d.resolver,
+            resolver =
+                p[Keys.resolver]?.let { runCatching { StreamResolverChoice.valueOf(it) }.getOrNull() }
+                    ?: d.resolver,
             playerBrightness = p[Keys.playerBrightness] ?: d.playerBrightness,
             recommenderEnabled = p[Keys.recommender] ?: d.recommenderEnabled,
             sponsorBlock = p[Keys.sponsorBlock] ?: d.sponsorBlock,
             sponsorBlockCategories = p[Keys.sbCategories] ?: d.sponsorBlockCategories,
             deArrow = p[Keys.deArrow] ?: d.deArrow,
             deArrowRandomThumbnail = p[Keys.deArrowRandomThumbnail] ?: d.deArrowRandomThumbnail,
+            deArrowLocalThumbnail = p[Keys.deArrowLocalThumbnail] ?: d.deArrowLocalThumbnail,
             showHome = p[Keys.showHome] ?: d.showHome,
             hideShorts = p[Keys.hideShorts] ?: d.hideShorts,
             returnYouTubeDislike = p[Keys.ryd] ?: d.returnYouTubeDislike,
@@ -186,6 +195,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             p[Keys.sbCategories] = s.sponsorBlockCategories
             p[Keys.deArrow] = s.deArrow
             p[Keys.deArrowRandomThumbnail] = s.deArrowRandomThumbnail
+            p[Keys.deArrowLocalThumbnail] = s.deArrowLocalThumbnail
             p[Keys.showHome] = s.showHome
             p[Keys.hideShorts] = s.hideShorts
             p[Keys.ryd] = s.returnYouTubeDislike

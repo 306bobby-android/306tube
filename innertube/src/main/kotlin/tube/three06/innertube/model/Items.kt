@@ -3,7 +3,11 @@ package tube.three06.innertube.model
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Thumbnail(val url: String, val width: Int? = null, val height: Int? = null)
+data class Thumbnail(
+    val url: String,
+    val width: Int? = null,
+    val height: Int? = null,
+)
 
 @Serializable
 data class ChannelRef(
@@ -32,6 +36,8 @@ data class Video(
     val descriptionSnippet: String? = null,
     val progressPercent: Int? = null,
     val badges: List<String> = emptyList(),
+    val isWatched: Boolean = false,
+    val setVideoId: String? = null,
 ) : Item
 
 @Serializable
@@ -67,20 +73,40 @@ data class Shelf(
     val kind: ShelfKind = ShelfKind.GENERIC,
 ) : Item
 
-data class Page<T>(val items: List<T>, val continuation: String? = null)
+data class Page<T>(
+    val items: List<T>,
+    val continuation: String? = null,
+)
 
 @Serializable
-data class Chapter(val title: String, val startSeconds: Long, val thumbnails: List<Thumbnail> = emptyList())
+data class Chapter(
+    val title: String,
+    val startSeconds: Long,
+    val thumbnails: List<Thumbnail> = emptyList(),
+)
 
 enum class LikeStatus { LIKE, DISLIKE, INDIFFERENT }
 
 sealed interface LinkTarget {
-    data class Url(val url: String) : LinkTarget
-    data class Channel(val browseId: String) : LinkTarget
-    data class Video(val videoId: String, val startSeconds: Long?) : LinkTarget
+    data class Url(
+        val url: String,
+    ) : LinkTarget
+
+    data class Channel(
+        val browseId: String,
+    ) : LinkTarget
+
+    data class Video(
+        val videoId: String,
+        val startSeconds: Long?,
+    ) : LinkTarget
 }
 
-data class TextLink(val start: Int, val end: Int, val target: LinkTarget)
+data class TextLink(
+    val start: Int,
+    val end: Int,
+    val target: LinkTarget,
+)
 
 data class VideoDetails(
     val id: String,
@@ -134,7 +160,11 @@ enum class CommentSort { TOP, NEWEST }
 
 enum class ChannelTabKind { HOME, VIDEOS, SHORTS, LIVE, PLAYLISTS, COMMUNITY, ABOUT }
 
-data class ChannelTab(val kind: ChannelTabKind, val title: String, val params: String?)
+data class ChannelTab(
+    val kind: ChannelTabKind,
+    val title: String,
+    val params: String?,
+)
 
 data class ChannelPage(
     val channel: Channel,
@@ -143,7 +173,11 @@ data class ChannelPage(
     val items: Page<Item>,
 )
 
-data class PlaylistPage(val playlist: Playlist, val videos: Page<Video>, val isEditable: Boolean = false)
+data class PlaylistPage(
+    val playlist: Playlist,
+    val videos: Page<Video>,
+    val isEditable: Boolean = false,
+)
 
 data class LibraryPage(
     val history: List<Video>,
@@ -152,7 +186,10 @@ data class LibraryPage(
     val playlists: List<Playlist>,
 )
 
-data class Subscription(val channel: ChannelRef, val hasNewContent: Boolean = false)
+data class Subscription(
+    val channel: ChannelRef,
+    val hasNewContent: Boolean = false,
+)
 
 data class AccountInfo(
     val name: String,
@@ -180,9 +217,13 @@ data class SearchFilter(
     val features: Set<Feature> = emptySet(),
 ) {
     enum class Type { VIDEO, CHANNEL, PLAYLIST, MOVIE }
+
     enum class UploadDate { HOUR, TODAY, WEEK, MONTH, YEAR }
+
     enum class Duration { SHORT, MEDIUM, LONG }
+
     enum class Sort { RELEVANCE, UPLOAD_DATE, VIEW_COUNT, RATING }
+
     enum class Feature { LIVE, FOUR_K, HD, SUBTITLES, CREATIVE_COMMONS, THREE_SIXTY, VR180, THREE_D, HDR, LOCATION, PURCHASED }
 }
 
@@ -194,7 +235,18 @@ sealed interface Endpoint {
         val index: Int? = null,
     ) : Endpoint
 
-    data class Browse(val browseId: String, val params: String? = null, val canonicalUrl: String? = null) : Endpoint
-    data class Search(val query: String, val params: String? = null) : Endpoint
-    data class Url(val url: String) : Endpoint
+    data class Browse(
+        val browseId: String,
+        val params: String? = null,
+        val canonicalUrl: String? = null,
+    ) : Endpoint
+
+    data class Search(
+        val query: String,
+        val params: String? = null,
+    ) : Endpoint
+
+    data class Url(
+        val url: String,
+    ) : Endpoint
 }

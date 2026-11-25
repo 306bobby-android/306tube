@@ -34,7 +34,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,27 +46,37 @@ import kotlinx.coroutines.launch
 import tube.three06.innertube.model.Video
 import tube.three06.player.Playback
 
-fun shareVideo(context: Context, video: Video) {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, video.title)
-        putExtra(Intent.EXTRA_TEXT, "https://youtu.be/${video.id}")
-    }
+fun shareVideo(
+    context: Context,
+    video: Video,
+) {
+    val intent =
+        Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, video.title)
+            putExtra(Intent.EXTRA_TEXT, "https://youtu.be/${video.id}")
+        }
     context.startActivity(Intent.createChooser(intent, "Share video"))
 }
 
 @Composable
-fun VideoMenuSheet(video: Video, onDismiss: () -> Unit) {
+fun VideoMenuSheet(
+    video: Video,
+    onDismiss: () -> Unit,
+) {
     val graph = LocalGraph.current
     val context = LocalContext.current
     val message = LocalMessages.current
-    val scope = rememberCoroutineScope()
+    val scope = graph.scope
     val credentials by graph.session.credentials.collectAsStateWithLifecycle()
     val signedIn = credentials.signedIn
     var choosePlaylist by remember { mutableStateOf(false) }
     var chooseDownload by remember { mutableStateOf(false) }
 
-    fun run(label: String, block: suspend () -> Unit) {
+    fun run(
+        label: String,
+        block: suspend () -> Unit,
+    ) {
         scope.launch {
             runCatching { block() }
                 .onSuccess { message(label) }
@@ -169,7 +178,10 @@ fun VideoMenuSheet(video: Video, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun DownloadQualityDialog(video: Video, onDone: () -> Unit) {
+private fun DownloadQualityDialog(
+    video: Video,
+    onDone: () -> Unit,
+) {
     val graph = LocalGraph.current
     val context = LocalContext.current
     val message = LocalMessages.current
@@ -196,13 +208,13 @@ private fun DownloadQualityDialog(video: Video, onDone: () -> Unit) {
     LaunchedEffect(video.id) {
         runCatching { Playback.resolveStreams(context, video.id) }
             .onSuccess { streams ->
-                heights = (streams.videoStreams + streams.muxedStreams)
-                    .map { it.height }
-                    .filter { it > 0 }
-                    .distinct()
-                    .sortedDescending()
-            }
-            .onFailure { error = it.describe() }
+                heights =
+                    (streams.videoStreams + streams.muxedStreams)
+                        .map { it.height }
+                        .filter { it > 0 }
+                        .distinct()
+                        .sortedDescending()
+            }.onFailure { error = it.describe() }
     }
 
     AlertDialog(
@@ -211,17 +223,26 @@ private fun DownloadQualityDialog(video: Video, onDone: () -> Unit) {
         title = { Text("Download") },
         text = {
             when {
-                error != null -> Text(error!!)
-                heights == null -> LoadingRow()
-                else -> Column {
-                    // 0 = audio only
-                    (heights!! + 0).forEach { height ->
-                        ListItem(
-                            headlineContent = { Text(if (height == 0) "Audio only" else "${height}p") },
-                            modifier = Modifier.clickable {
-                                if (settings.ytDlpSetupDone) begin(height) else pendingHeight = height
-                            },
-                        )
+                error != null -> {
+                    Text(error!!)
+                }
+
+                heights == null -> {
+                    LoadingRow()
+                }
+
+                else -> {
+                    Column {
+                        // 0 = audio only
+                        (heights!! + 0).forEach { height ->
+                            ListItem(
+                                headlineContent = { Text(if (height == 0) "Audio only" else "${height}p") },
+                                modifier =
+                                    Modifier.clickable {
+                                        if (settings.ytDlpSetupDone) begin(height) else pendingHeight = height
+                                    },
+                            )
+                        }
                     }
                 }
             }
@@ -230,7 +251,11 @@ private fun DownloadQualityDialog(video: Video, onDone: () -> Unit) {
 }
 
 @Composable
-private fun MenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun MenuRow(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
     ListItem(
         headlineContent = { Text(label) },
         modifier = Modifier.clickable(onClick = onClick),
@@ -239,10 +264,13 @@ private fun MenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
 }
 
 @Composable
-fun LocalPlaylistChooser(video: Video, onDone: () -> Unit) {
+fun LocalPlaylistChooser(
+    video: Video,
+    onDone: () -> Unit,
+) {
     val graph = LocalGraph.current
     val message = LocalMessages.current
-    val scope = rememberCoroutineScope()
+    val scope = graph.scope
     val playlists by graph.library.playlists.collectAsStateWithLifecycle(initialValue = emptyList())
     var newName by remember { mutableStateOf<String?>(null) }
 
@@ -294,13 +322,14 @@ fun LocalPlaylistChooser(video: Video, onDone: () -> Unit) {
             items(playlists, key = { it.id }) { p ->
                 ListItem(
                     headlineContent = { Text(p.title) },
-                    modifier = Modifier.clickable {
-                        scope.launch {
-                            val added = graph.library.addToPlaylist(p.id, video)
-                            message(if (added) "Saved to ${p.title}" else "Already in ${p.title}")
-                        }
-                        onDone()
-                    },
+                    modifier =
+                        Modifier.clickable {
+                            scope.launch {
+                                val added = graph.library.addToPlaylist(p.id, video)
+                                message(if (added) "Saved to ${p.title}" else "Already in ${p.title}")
+                            }
+                            onDone()
+                        },
                     supportingContent = { Text("${p.itemCount} videos") },
                     leadingContent = {
                         Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = null)

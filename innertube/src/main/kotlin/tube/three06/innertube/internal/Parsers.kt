@@ -1,6 +1,5 @@
 package tube.three06.innertube.internal
 
-import java.net.URLDecoder
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import tube.three06.innertube.model.AccountIdentity
@@ -31,17 +30,19 @@ import tube.three06.innertube.model.TextLink
 import tube.three06.innertube.model.Thumbnail
 import tube.three06.innertube.model.Video
 import tube.three06.innertube.model.VideoDetails
+import java.net.URLDecoder
 
 internal fun thumbnails(e: JsonElement?): List<Thumbnail> {
     if (e == null) return emptyList()
-    val arr = when {
-        e.arr != null -> e.arr
-        e["thumbnails"] != null -> e["thumbnails"].arr
-        e["sources"] != null -> e["sources"].arr
-        e["image"] != null -> return thumbnails(e["image"])
-        e["thumbnail"] != null -> return thumbnails(e["thumbnail"])
-        else -> null
-    } ?: return emptyList()
+    val arr =
+        when {
+            e.arr != null -> e.arr
+            e["thumbnails"] != null -> e["thumbnails"].arr
+            e["sources"] != null -> e["sources"].arr
+            e["image"] != null -> return thumbnails(e["image"])
+            e["thumbnail"] != null -> return thumbnails(e["thumbnail"])
+            else -> null
+        } ?: return emptyList()
     return arr.mapNotNull { t ->
         val url = t["url"].str ?: return@mapNotNull null
         Thumbnail(
@@ -52,10 +53,11 @@ internal fun thumbnails(e: JsonElement?): List<Thumbnail> {
     }
 }
 
-internal fun defaultThumbnails(videoId: String): List<Thumbnail> = listOf(
-    Thumbnail("https://i.ytimg.com/vi/$videoId/mqdefault.jpg", 320, 180),
-    Thumbnail("https://i.ytimg.com/vi/$videoId/hqdefault.jpg", 480, 360),
-)
+internal fun defaultThumbnails(videoId: String): List<Thumbnail> =
+    listOf(
+        Thumbnail("https://i.ytimg.com/vi/$videoId/mqdefault.jpg", 320, 180),
+        Thumbnail("https://i.ytimg.com/vi/$videoId/hqdefault.jpg", 480, 360),
+    )
 
 internal fun durationSeconds(text: String?): Long? {
     val parts = text?.trim()?.split(':') ?: return null
@@ -65,25 +67,31 @@ internal fun durationSeconds(text: String?): Long? {
 }
 
 internal fun parseCount(text: String?): Long? {
-    val match = text?.trim()?.replace(",", "")?.replace(".", "#")
-        ?.let { Regex("(\\d+)(?:#(\\d+))?\\s*([KMB])?", RegexOption.IGNORE_CASE).find(it) }
-        ?: return null
+    val match =
+        text
+            ?.trim()
+            ?.replace(",", "")
+            ?.replace(".", "#")
+            ?.let { Regex("(\\d+)(?:#(\\d+))?\\s*([KMB])?", RegexOption.IGNORE_CASE).find(it) }
+            ?: return null
     val whole = match.groupValues[1].toDouble()
     val fraction = match.groupValues[2].takeIf { it.isNotEmpty() }?.let { "0.$it".toDouble() } ?: 0.0
-    val multiplier = when (match.groupValues[3].uppercase()) {
-        "K" -> 1_000.0
-        "M" -> 1_000_000.0
-        "B" -> 1_000_000_000.0
-        else -> 1.0
-    }
+    val multiplier =
+        when (match.groupValues[3].uppercase()) {
+            "K" -> 1_000.0
+            "M" -> 1_000_000.0
+            "B" -> 1_000_000_000.0
+            else -> 1.0
+        }
     return ((whole + fraction) * multiplier).toLong()
 }
 
-internal fun browseIdOf(e: JsonElement?): String? =
-    e.findFirst("browseEndpoint")["browseId"].str
+internal fun browseIdOf(e: JsonElement?): String? = e.findFirst("browseEndpoint")["browseId"].str
 
 internal fun handleOf(e: JsonElement?): String? =
-    e.findFirst("browseEndpoint")["canonicalBaseUrl"].str
+    e
+        .findFirst("browseEndpoint")["canonicalBaseUrl"]
+        .str
         ?.removePrefix("/")
         ?.takeIf { it.startsWith("@") }
 
@@ -128,19 +136,21 @@ internal fun receivedItems(response: JsonElement?): List<JsonElement> {
     return out
 }
 
-private val CONTAINER_KEYS = setOf(
-    "itemSectionRenderer",
-    "sectionListRenderer",
-    "richGridRenderer",
-    "gridRenderer",
-    "richItemRenderer",
-    "richSectionRenderer",
-    "horizontalListRenderer",
-    "verticalListRenderer",
-    "expandedShelfContentsRenderer",
-    "tabRenderer",
-    "showingResultsForRenderer",
-)
+private val CONTAINER_KEYS =
+    setOf(
+        "itemSectionRenderer",
+        "playlistVideoListRenderer",
+        "sectionListRenderer",
+        "richGridRenderer",
+        "gridRenderer",
+        "richItemRenderer",
+        "richSectionRenderer",
+        "horizontalListRenderer",
+        "verticalListRenderer",
+        "expandedShelfContentsRenderer",
+        "tabRenderer",
+        "showingResultsForRenderer",
+    )
 
 internal fun parseItems(elements: List<JsonElement>): List<Item> {
     val out = ArrayList<Item>()
@@ -148,7 +158,10 @@ internal fun parseItems(elements: List<JsonElement>): List<Item> {
     return out
 }
 
-private fun collect(e: JsonElement?, out: MutableList<Item>) {
+private fun collect(
+    e: JsonElement?,
+    out: MutableList<Item>,
+) {
     val obj = e.obj ?: return
     val keys = obj.keys.filter { it != "trackingParams" && it != "clickTrackingParams" }
     if (keys.size > 1 && keys.all { it.endsWith("Renderer") || it.endsWith("ViewModel") }) {
@@ -159,19 +172,29 @@ private fun collect(e: JsonElement?, out: MutableList<Item>) {
     val body = obj[name]
     when (name) {
         "itemSectionRenderer", "sectionListRenderer", "richGridRenderer",
-        "expandedShelfContentsRenderer", "showingResultsForRenderer",
-        -> body["contents"].list.forEach { collect(it, out) }
+        "playlistVideoListRenderer", "expandedShelfContentsRenderer", "showingResultsForRenderer",
+        -> {
+            body["contents"].list.forEach { collect(it, out) }
+        }
 
         "gridRenderer", "horizontalListRenderer", "verticalListRenderer",
-        -> body["items"].list.forEach { collect(it, out) }
+        -> {
+            body["items"].list.forEach { collect(it, out) }
+        }
 
-        "richItemRenderer", "richSectionRenderer" -> collect(body["content"], out)
+        "richItemRenderer", "richSectionRenderer" -> {
+            collect(body["content"], out)
+        }
 
-        "tabRenderer" -> collect(body["content"], out)
+        "tabRenderer" -> {
+            collect(body["content"], out)
+        }
 
         "shelfRenderer", "richShelfRenderer", "reelShelfRenderer", "gridShelfViewModel",
         "horizontalCardListRenderer",
-        -> parseShelf(name, body)?.let { out += it }
+        -> {
+            parseShelf(name, body)?.let { out += it }
+        }
 
         else -> {
             val item = parseItem(e)
@@ -184,7 +207,8 @@ private fun collect(e: JsonElement?, out: MutableList<Item>) {
                 body["contents"].list.forEach { collect(it, out) }
                 body["items"].list.forEach { collect(it, out) }
                 body["content"]?.let { collect(it, out) }
-                body["tabs"].list
+                body["tabs"]
+                    .list
                     .firstOrNull { it["tabRenderer"]["selected"].bool == true }
                     ?.let { collect(it, out) }
             }
@@ -192,25 +216,41 @@ private fun collect(e: JsonElement?, out: MutableList<Item>) {
     }
 }
 
-private fun parseShelf(name: String, body: JsonElement?): Shelf? {
+private fun parseShelf(
+    name: String,
+    body: JsonElement?,
+): Shelf? {
     if (name == "horizontalCardListRenderer") return null
     val title = body["title"].text ?: body["header"].findFirst("title").text
-    val elements = when (name) {
-        "shelfRenderer" -> body["content"].obj?.values?.firstOrNull()
-            ?.let { inner -> inner["items"].list.ifEmpty { inner["contents"].list } }
-            ?: emptyList()
-        "reelShelfRenderer" -> body["items"].list
-        else -> body["contents"].list.ifEmpty { body["items"].list }
-    }
+    val elements =
+        when (name) {
+            "shelfRenderer" -> {
+                body["content"]
+                    .obj
+                    ?.values
+                    ?.firstOrNull()
+                    ?.let { inner -> inner["items"].list.ifEmpty { inner["contents"].list } }
+                    ?: emptyList()
+            }
+
+            "reelShelfRenderer" -> {
+                body["items"].list
+            }
+
+            else -> {
+                body["contents"].list.ifEmpty { body["items"].list }
+            }
+        }
     val items = parseItems(elements)
     if (items.isEmpty()) return null
-    val kind = when {
-        name == "reelShelfRenderer" || items.all { it is Video && it.isShort } -> ShelfKind.SHORTS
-        items.all { it is Playlist && it.id.startsWith("RD") } -> ShelfKind.MIX
-        items.all { it is Playlist } -> ShelfKind.PLAYLISTS
-        items.all { it is Channel } -> ShelfKind.CHANNELS
-        else -> ShelfKind.GENERIC
-    }
+    val kind =
+        when {
+            name == "reelShelfRenderer" || items.all { it is Video && it.isShort } -> ShelfKind.SHORTS
+            items.all { it is Playlist && it.id.startsWith("RD") } -> ShelfKind.MIX
+            items.all { it is Playlist } -> ShelfKind.PLAYLISTS
+            items.all { it is Channel } -> ShelfKind.CHANNELS
+            else -> ShelfKind.GENERIC
+        }
     return Shelf(
         title = title,
         items = items,
@@ -230,7 +270,9 @@ internal fun parseItem(e: JsonElement?): Item? {
         -> parseVideoRenderer(r)
 
         "reelItemRenderer" -> parseReelItem(r)
+
         "shortsLockupViewModel" -> parseShortsLockup(r)
+
         "lockupViewModel" -> parseLockup(r)
 
         "channelRenderer", "gridChannelRenderer", "compactChannelRenderer" -> parseChannelRenderer(r)
@@ -248,23 +290,27 @@ internal fun parseItem(e: JsonElement?): Item? {
 }
 
 private fun parseVideoRenderer(r: JsonElement): Video? {
-    val id = r["videoId"].str
-        ?: r["navigationEndpoint"].findFirst("videoId").str
-        ?: return null
+    val id =
+        r["videoId"].str
+            ?: r["navigationEndpoint"].findFirst("videoId").str
+            ?: return null
     val overlays = r["thumbnailOverlays"].list
     val timeStatus = overlays.firstNotNullOfOrNull { it["thumbnailOverlayTimeStatusRenderer"] }
     val style = timeStatus["style"].str
-    val badgeTexts = r["badges"].list.mapNotNull {
-        it["metadataBadgeRenderer"]["label"].str ?: it["metadataBadgeRenderer"]["style"].str
-    }
-    val isLive = style == "LIVE" ||
-        badgeTexts.any { it.contains("LIVE", ignoreCase = true) } ||
-        r["viewCountText"].text?.contains("watching") == true
+    val badgeTexts =
+        r["badges"].list.mapNotNull {
+            it["metadataBadgeRenderer"]["label"].str ?: it["metadataBadgeRenderer"]["style"].str
+        }
+    val isLive =
+        style == "LIVE" ||
+            badgeTexts.any { it.contains("LIVE", ignoreCase = true) } ||
+            r["viewCountText"].text?.contains("watching") == true
     val isUpcoming = style == "UPCOMING" || r["upcomingEventData"] != null
     val byline = r["ownerText"] ?: r["shortBylineText"] ?: r["longBylineText"]
-    val avatar = r["channelThumbnailSupportedRenderers"].findFirst("thumbnail")
-        ?: r["channelThumbnail"]
-        ?: r["avatar"].findFirst("image")
+    val avatar =
+        r["channelThumbnailSupportedRenderers"].findFirst("thumbnail")
+            ?: r["channelThumbnail"]
+            ?: r["avatar"].findFirst("image")
     val lengthText = r["lengthText"].text ?: timeStatus["text"].text
     return Video(
         id = id,
@@ -277,12 +323,21 @@ private fun parseVideoRenderer(r: JsonElement): Video? {
         isLive = isLive,
         isUpcoming = isUpcoming,
         isShort = style == "SHORTS" || r["navigationEndpoint"]["reelWatchEndpoint"] != null,
-        descriptionSnippet = r["detailedMetadataSnippets"][0]["snippetText"].text
-            ?: r["descriptionSnippet"].text,
-        progressPercent = overlays.firstNotNullOfOrNull {
-            it["thumbnailOverlayResumePlaybackRenderer"]["percentDurationWatched"].int
-        },
+        descriptionSnippet =
+            r["detailedMetadataSnippets"][0]["snippetText"].text
+                ?: r["descriptionSnippet"].text,
+        progressPercent =
+            overlays.firstNotNullOfOrNull {
+                it["thumbnailOverlayResumePlaybackRenderer"]["percentDurationWatched"].int
+            },
         badges = r["badges"].list.mapNotNull { it["metadataBadgeRenderer"]["label"].str },
+        isWatched =
+            r["isWatched"].bool == true ||
+                overlays.any {
+                    (it["thumbnailOverlayResumePlaybackRenderer"]["percentDurationWatched"].int ?: 0) >= 100 ||
+                        it["thumbnailOverlayPlaybackStatusRenderer"]["text"].text.equals("watched", ignoreCase = true)
+                },
+        setVideoId = r["setVideoId"].str,
     )
 }
 
@@ -298,23 +353,30 @@ private fun parseReelItem(r: JsonElement): Video? {
 }
 
 private fun parseShortsLockup(r: JsonElement): Video? {
-    val id = r["onTap"].findFirst("reelWatchEndpoint")["videoId"].str
-        ?: r["entityId"].str?.substringAfterLast("shorts-shelf-item-")?.takeIf { it.length == 11 }
-        ?: r["inlinePlayerData"].findFirst("videoId").str
-        ?: return null
+    val id =
+        r["onTap"].findFirst("reelWatchEndpoint")["videoId"].str
+            ?: r["entityId"].str?.substringAfterLast("shorts-shelf-item-")?.takeIf { it.length == 11 }
+            ?: r["inlinePlayerData"].findFirst("videoId").str
+            ?: return null
     return Video(
         id = id,
-        title = r["overlayMetadata"]["primaryText"].text
-            ?: r["accessibilityText"].str?.substringBefore(", ")
-            ?: "",
-        thumbnails = thumbnails(r["thumbnail"] ?: r["thumbnailViewModel"].findFirst("image"))
-            .ifEmpty { defaultThumbnails(id) },
+        title =
+            r["overlayMetadata"]["primaryText"].text
+                ?: r["accessibilityText"].str?.substringBefore(", ")
+                ?: "",
+        thumbnails =
+            thumbnails(r["thumbnail"] ?: r["thumbnailViewModel"].findFirst("image"))
+                .ifEmpty { defaultThumbnails(id) },
         viewCountText = r["overlayMetadata"]["secondaryText"].text,
         isShort = true,
     )
 }
 
-private class BadgeInfo(val duration: Long?, val live: Boolean, val countText: String?)
+private class BadgeInfo(
+    val duration: Long?,
+    val live: Boolean,
+    val countText: String?,
+)
 
 private fun lockupBadges(image: JsonElement?): BadgeInfo {
     var duration: Long? = null
@@ -348,77 +410,99 @@ private fun parseLockup(r: JsonElement): Item? {
     val firstRow = rows.firstOrNull()["metadataParts"].list
     val avatar = meta["image"]["decoratedAvatarViewModel"]
 
-    val bylinePart = firstRow.firstOrNull {
-        it["text"] != null && (it["text"]["commandRuns"] != null || avatar != null)
-    } ?: firstRow.firstOrNull { part ->
-        rows.size > 1 && part["text"].text?.let { !looksLikeStat(it) } == true
-    }
+    val bylinePart =
+        firstRow.firstOrNull {
+            it["text"] != null && (it["text"]["commandRuns"] != null || avatar != null)
+        } ?: firstRow.firstOrNull { part ->
+            rows.size > 1 && part["text"].text?.let { !looksLikeStat(it) } == true
+        }
     val bylineText = bylinePart["text"].text
-    val channelId = browseIdOf(avatar["rendererContext"])
-        ?: browseIdOf(bylinePart["text"]["commandRuns"])
-    val verified = firstRow.any { part ->
-        part["text"]["attachmentRuns"].list.any { run ->
-            val icon = run.findFirst("imageName").str ?: ""
-            icon.contains("CHECK_CIRCLE") || icon.contains("AUDIO_BADGE")
+    val channelId =
+        browseIdOf(avatar["rendererContext"])
+            ?: browseIdOf(bylinePart["text"]["commandRuns"])
+    val verified =
+        firstRow.any { part ->
+            part["text"]["attachmentRuns"].list.any { run ->
+                val icon = run.findFirst("imageName").str ?: ""
+                icon.contains("CHECK_CIRCLE") || icon.contains("AUDIO_BADGE")
+            }
         }
-    }
-    val channel = bylineText?.let {
-        ChannelRef(
-            id = channelId,
-            name = it,
-            avatar = thumbnails(avatar.findFirst("avatarViewModel")["image"]),
-            verified = verified,
-            handle = handleOf(avatar["rendererContext"])
-                ?: handleOf(bylinePart["text"]["commandRuns"]),
-        )
-    }
+    val channel =
+        bylineText?.let {
+            ChannelRef(
+                id = channelId,
+                name = it,
+                avatar = thumbnails(avatar.findFirst("avatarViewModel")["image"]),
+                verified = verified,
+                handle =
+                    handleOf(avatar["rendererContext"])
+                        ?: handleOf(bylinePart["text"]["commandRuns"]),
+            )
+        }
 
-    fun partText(predicate: (String) -> Boolean): String? = parts.firstNotNullOfOrNull { part ->
-        val text = part["text"].text ?: return@firstNotNullOfOrNull null
-        val label = part["accessibilityLabel"].str
-        when {
-            predicate(text) -> text
-            label != null && predicate(label) -> label
-            else -> null
+    fun partText(predicate: (String) -> Boolean): String? =
+        parts.firstNotNullOfOrNull { part ->
+            val text = part["text"].text ?: return@firstNotNullOfOrNull null
+            val label = part["accessibilityLabel"].str
+            when {
+                predicate(text) -> text
+                label != null && predicate(label) -> label
+                else -> null
+            }
         }
-    }
 
     val image = r["contentImage"]
     val badges = lockupBadges(image)
 
     return when {
-        type.contains("VIDEO") || (type.isEmpty() && id.length == 11) -> Video(
-            id = id,
-            title = title,
-            channel = channel,
-            thumbnails = thumbnails(image["thumbnailViewModel"]["image"] ?: image.findFirst("image"))
-                .ifEmpty { defaultThumbnails(id) },
-            durationSeconds = badges.duration,
-            viewCountText = partText { it.contains("view") || it.contains("watching") },
-            publishedText = partText {
-                it.contains(" ago") || it.startsWith("Streamed") || it.startsWith("Premiere") ||
-                    it.startsWith("Scheduled")
-            },
-            isLive = badges.live,
-            isUpcoming = partText { it.startsWith("Scheduled") || it.startsWith("Premieres") } != null,
-            isShort = r["rendererContext"].findFirst("reelWatchEndpoint") != null,
-            progressPercent = image.findFirst("thumbnailOverlayProgressBarViewModel")["startPercent"].int,
-        )
+        type.contains("VIDEO") || (type.isEmpty() && id.length == 11) -> {
+            Video(
+                id = id,
+                title = title,
+                channel = channel,
+                thumbnails =
+                    thumbnails(image["thumbnailViewModel"]["image"] ?: image.findFirst("image"))
+                        .ifEmpty { defaultThumbnails(id) },
+                durationSeconds = badges.duration,
+                viewCountText = partText { it.contains("view") || it.contains("watching") },
+                publishedText =
+                    partText {
+                        it.contains(" ago") || it.startsWith("Streamed") || it.startsWith("Premiere") ||
+                            it.startsWith("Scheduled")
+                    },
+                isLive = badges.live,
+                isUpcoming = partText { it.startsWith("Scheduled") || it.startsWith("Premieres") } != null,
+                isShort = r["rendererContext"].findFirst("reelWatchEndpoint") != null,
+                progressPercent = image.findFirst("thumbnailOverlayProgressBarViewModel")["startPercent"].int,
+            )
+        }
 
         type.contains("PLAYLIST") || type.contains("PODCAST") || type.contains("ALBUM") ||
             type.contains("MIX") || id.startsWith("PL") || id.startsWith("RD") -> {
-            val thumb = image["collectionThumbnailViewModel"]["primaryThumbnail"]["thumbnailViewModel"]["image"]
-                ?: image.findFirst("image")
+            val thumb =
+                image["collectionThumbnailViewModel"]["primaryThumbnail"]["thumbnailViewModel"]["image"]
+                    ?: image.findFirst("image")
             val typeLabels = setOf("Playlist", "Mix", "Podcast", "Album", "Course")
-            val owner = when {
-                channel == null -> firstRow.firstOrNull()["text"].text
-                    ?.takeIf { it !in typeLabels }
-                    ?.let { ChannelRef(id = null, name = it) }
-                channel.name in typeLabels -> channel.id?.let {
-                    ChannelRef(id = it, name = channel.handle ?: it, handle = channel.handle)
+            val owner =
+                when {
+                    channel == null -> {
+                        firstRow
+                            .firstOrNull()["text"]
+                            .text
+                            ?.takeIf { it !in typeLabels }
+                            ?.let { ChannelRef(id = null, name = it) }
+                    }
+
+                    channel.name in typeLabels -> {
+                        channel.id?.let {
+                            ChannelRef(id = it, name = channel.handle ?: it, handle = channel.handle)
+                        }
+                    }
+
+                    else -> {
+                        channel
+                    }
                 }
-                else -> channel
-            }
             Playlist(
                 id = id,
                 title = title,
@@ -428,17 +512,21 @@ private fun parseLockup(r: JsonElement): Item? {
             )
         }
 
-        type.contains("CHANNEL") -> Channel(
-            id = id,
-            name = title.ifEmpty { bylineText ?: "" },
-            handle = partText { it.startsWith("@") },
-            avatar = thumbnails(image.findFirst("image")),
-            subscriberCountText = partText { it.contains("subscriber") },
-            videoCountText = partText { it.contains("video") },
-            verified = verified,
-        )
+        type.contains("CHANNEL") -> {
+            Channel(
+                id = id,
+                name = title.ifEmpty { bylineText ?: "" },
+                handle = partText { it.startsWith("@") },
+                avatar = thumbnails(image.findFirst("image")),
+                subscriberCountText = partText { it.contains("subscriber") },
+                videoCountText = partText { it.contains("video") },
+                verified = verified,
+            )
+        }
 
-        else -> null
+        else -> {
+            null
+        }
     }
 }
 
@@ -463,19 +551,20 @@ private fun parsePlaylistRenderer(r: JsonElement): Playlist? {
     return Playlist(
         id = id,
         title = r["title"].text ?: "",
-        thumbnails = thumbnails(r["thumbnail"])
-            .ifEmpty { thumbnails(r["thumbnails"][0]) }
-            .ifEmpty { thumbnails(r["thumbnailRenderer"].findFirst("thumbnail")) },
+        thumbnails =
+            thumbnails(r["thumbnail"])
+                .ifEmpty { thumbnails(r["thumbnails"][0]) }
+                .ifEmpty { thumbnails(r["thumbnailRenderer"].findFirst("thumbnail")) },
         channel = channelRef(r["shortBylineText"] ?: r["longBylineText"]),
-        videoCountText = r["videoCountText"].text
-            ?: r["videoCountShortText"].text
-            ?: r["videoCount"].str?.let { "$it videos" },
+        videoCountText =
+            r["videoCountText"].text
+                ?: r["videoCountShortText"].text
+                ?: r["videoCount"].str?.let { "$it videos" },
         description = r["descriptionSnippet"].text,
     )
 }
 
-internal fun tabs(response: JsonElement?): List<JsonElement> =
-    response["contents"].findFirst("tabs").list
+internal fun tabs(response: JsonElement?): List<JsonElement> = response["contents"].findFirst("tabs").list
 
 internal fun selectedTab(response: JsonElement?): JsonElement? {
     val tabs = tabs(response)
@@ -485,22 +574,30 @@ internal fun selectedTab(response: JsonElement?): JsonElement? {
 
 internal fun pageOf(response: JsonElement?): Page<Item> {
     val received = receivedItems(response)
-    val elements = when {
-        received.isNotEmpty() -> received
-        response["contents"] != null -> {
-            val tab = selectedTab(response)
-            listOfNotNull(if (tab != null) tab["content"] else response["contents"])
+    val elements =
+        when {
+            received.isNotEmpty() -> {
+                received
+            }
+
+            response["contents"] != null -> {
+                val tab = selectedTab(response)
+                listOfNotNull(if (tab != null) tab["content"] else response["contents"])
+            }
+
+            else -> {
+                emptyList()
+            }
         }
-        else -> emptyList()
-    }
     return Page(parseItems(elements), elements.firstNotNullOfOrNull { continuationToken(it) })
 }
 
 internal fun isLoginPrompt(response: JsonElement?): Boolean {
     val contents = response["contents"] ?: return false
-    val promo = contents.findFirst("backgroundPromoRenderer")
-        ?: contents.findFirst("messageRenderer")
-        ?: return false
+    val promo =
+        contents.findFirst("backgroundPromoRenderer")
+            ?: contents.findFirst("messageRenderer")
+            ?: return false
     return promo.contains("signInEndpoint")
 }
 
@@ -520,55 +617,69 @@ internal fun requestedLoginError(response: JsonElement?): Boolean {
         error["status"].str == "PERMISSION_DENIED"
 }
 
-internal fun channelTabKind(title: String?): ChannelTabKind? = when (title?.lowercase()) {
-    "home", "featured" -> ChannelTabKind.HOME
-    "videos" -> ChannelTabKind.VIDEOS
-    "shorts" -> ChannelTabKind.SHORTS
-    "live", "streams" -> ChannelTabKind.LIVE
-    "playlists" -> ChannelTabKind.PLAYLISTS
-    "community", "posts" -> ChannelTabKind.COMMUNITY
-    "about" -> ChannelTabKind.ABOUT
-    else -> null
-}
+internal fun channelTabKind(title: String?): ChannelTabKind? =
+    when (title?.lowercase()) {
+        "home", "featured" -> ChannelTabKind.HOME
+        "videos" -> ChannelTabKind.VIDEOS
+        "shorts" -> ChannelTabKind.SHORTS
+        "live", "streams" -> ChannelTabKind.LIVE
+        "playlists" -> ChannelTabKind.PLAYLISTS
+        "community", "posts" -> ChannelTabKind.COMMUNITY
+        "about" -> ChannelTabKind.ABOUT
+        else -> null
+    }
 
-internal fun parseChannelHeader(response: JsonElement?, fallbackId: String?): Channel {
+internal fun parseChannelHeader(
+    response: JsonElement?,
+    fallbackId: String?,
+): Channel {
     val meta = response["metadata"]["channelMetadataRenderer"]
     val header = response["header"]
     val pageHeader = header["pageHeaderRenderer"]
     val c4 = header["c4TabbedHeaderRenderer"]
     val vm = pageHeader["content"]["pageHeaderViewModel"]
-    val metaTexts = vm["metadata"]["contentMetadataViewModel"]["metadataRows"].list
-        .flatMap { it["metadataParts"].list }
-        .mapNotNull { it["text"].text }
+    val metaTexts =
+        vm["metadata"]["contentMetadataViewModel"]["metadataRows"]
+            .list
+            .flatMap { it["metadataParts"].list }
+            .mapNotNull { it["text"].text }
 
-    val handle = metaTexts.firstOrNull { it.startsWith("@") }
-        ?: c4["channelHandleText"].text
-        ?: meta["vanityChannelUrl"].str?.substringAfterLast('/')?.takeIf { it.startsWith("@") }
-        ?: meta["ownerUrls"][0].str?.substringAfterLast('/')?.takeIf { it.startsWith("@") }
-    val verified = vm["title"]["dynamicTextViewModel"]["text"]["attachmentRuns"].list.any { run ->
-        val icon = run.findFirst("imageName").str ?: ""
-        icon.contains("CHECK_CIRCLE") || icon.contains("AUDIO_BADGE")
-    } || verifiedBadge(c4["badges"])
+    val handle =
+        metaTexts.firstOrNull { it.startsWith("@") }
+            ?: c4["channelHandleText"].text
+            ?: meta["vanityChannelUrl"].str?.substringAfterLast('/')?.takeIf { it.startsWith("@") }
+            ?: meta["ownerUrls"][0].str?.substringAfterLast('/')?.takeIf { it.startsWith("@") }
+    val verified =
+        vm["title"]["dynamicTextViewModel"]["text"]["attachmentRuns"].list.any { run ->
+            val icon = run.findFirst("imageName").str ?: ""
+            icon.contains("CHECK_CIRCLE") || icon.contains("AUDIO_BADGE")
+        } || verifiedBadge(c4["badges"])
 
     return Channel(
         id = meta["externalId"].str ?: c4["channelId"].str ?: fallbackId ?: "",
         name = pageHeader["pageTitle"].str ?: meta["title"].str ?: c4["title"].text ?: "",
         handle = handle,
-        avatar = thumbnails(vm["image"].findFirst("avatarViewModel")["image"])
-            .ifEmpty { thumbnails(c4["avatar"]) }
-            .ifEmpty { thumbnails(meta["avatar"]) },
-        banner = thumbnails(vm["banner"].findFirst("image"))
-            .ifEmpty { thumbnails(c4["banner"]) },
-        subscriberCountText = metaTexts.firstOrNull { it.contains("subscriber") }
-            ?: c4["subscriberCountText"].text,
-        videoCountText = metaTexts.firstOrNull { it.contains("video") }
-            ?: c4["videosCountText"].text,
-        description = meta["description"].str
-            ?: vm["description"].findFirst("description").text
-            ?: c4["tagline"].findFirst("content").text,
+        avatar =
+            thumbnails(vm["image"].findFirst("avatarViewModel")["image"])
+                .ifEmpty { thumbnails(c4["avatar"]) }
+                .ifEmpty { thumbnails(meta["avatar"]) },
+        banner =
+            thumbnails(vm["banner"].findFirst("image"))
+                .ifEmpty { thumbnails(c4["banner"]) },
+        subscriberCountText =
+            metaTexts.firstOrNull { it.contains("subscriber") }
+                ?: c4["subscriberCountText"].text,
+        videoCountText =
+            metaTexts.firstOrNull { it.contains("video") }
+                ?: c4["videosCountText"].text,
+        description =
+            meta["description"].str
+                ?: vm["description"].findFirst("description").text
+                ?: c4["tagline"].findFirst("content").text,
         verified = verified,
-        subscribed = vm["actions"].findFirst("subscribeButtonViewModel")["subscribed"].bool
-            ?: c4["subscribeButton"]["subscribeButtonRenderer"]["subscribed"].bool,
+        subscribed =
+            vm["actions"].findFirst("subscribeButtonViewModel")["subscribed"].bool
+                ?: c4["subscribeButton"]["subscribeButtonRenderer"]["subscribed"].bool,
     )
 }
 
@@ -584,188 +695,249 @@ internal fun channelAboutContinuation(response: JsonElement?): String? =
     response["header"].findFirst("descriptionPreviewViewModel")?.let { continuationToken(it) }
         ?: response["header"].findFirst("showEngagementPanelEndpoint")?.let { continuationToken(it) }
 
-internal fun applyAbout(channel: Channel, aboutResponse: JsonElement?): Channel {
-    val about = aboutResponse.findFirst("aboutChannelViewModel")
-        ?: aboutResponse.findFirst("channelAboutFullMetadataRenderer")
-        ?: return channel
+internal fun applyAbout(
+    channel: Channel,
+    aboutResponse: JsonElement?,
+): Channel {
+    val about =
+        aboutResponse.findFirst("aboutChannelViewModel")
+            ?: aboutResponse.findFirst("channelAboutFullMetadataRenderer")
+            ?: return channel
     return channel.copy(
         description = about["description"].text ?: channel.description,
         subscriberCountText = about["subscriberCountText"].text ?: channel.subscriberCountText,
         videoCountText = about["videoCountText"].text ?: channel.videoCountText,
-        handle = channel.handle
-            ?: about["canonicalChannelUrl"].str?.substringAfterLast('/')?.takeIf { it.startsWith("@") },
+        handle =
+            channel.handle
+                ?: about["canonicalChannelUrl"].str?.substringAfterLast('/')?.takeIf { it.startsWith("@") },
     )
 }
 
-internal fun parsePlaylistHeader(response: JsonElement?, playlistId: String): Pair<Playlist, Boolean> {
+internal fun parsePlaylistHeader(
+    response: JsonElement?,
+    playlistId: String,
+): Pair<Playlist, Boolean> {
     val header = response["header"]
     val legacy = header["playlistHeaderRenderer"]
     val pageHeader = header["pageHeaderRenderer"]
     val vm = pageHeader["content"]["pageHeaderViewModel"]
     val sidebar = response["sidebar"].findFirst("playlistSidebarPrimaryInfoRenderer")
     val sidebarOwner = response["sidebar"].findFirst("videoOwnerRenderer")
-    val parts = vm["metadata"]["contentMetadataViewModel"]["metadataRows"].list
-        .flatMap { it["metadataParts"].list }
+    val parts =
+        vm["metadata"]["contentMetadataViewModel"]["metadataRows"]
+            .list
+            .flatMap { it["metadataParts"].list }
 
-    val ownerPart = parts.firstOrNull {
-        it["avatarStack"] != null || it["text"]["commandRuns"] != null
-    }
-    val ownerName = ownerPart["text"].text?.removePrefix("by ")
-        ?: legacy["ownerText"].text
-        ?: sidebarOwner["title"].text
-    val ownerId = browseIdOf(ownerPart)
-        ?: browseIdOf(legacy["ownerEndpoint"])
-        ?: browseIdOf(sidebarOwner["navigationEndpoint"])
-    val channel = ownerName?.let {
-        ChannelRef(
-            id = ownerId,
-            name = it,
-            avatar = thumbnails(ownerPart.findFirst("avatarViewModel")["image"])
-                .ifEmpty { thumbnails(sidebarOwner["thumbnail"]) },
-            handle = handleOf(ownerPart) ?: handleOf(legacy["ownerEndpoint"]),
+    val ownerPart =
+        parts.firstOrNull {
+            it["avatarStack"] != null || it["text"]["commandRuns"] != null
+        }
+    val ownerName =
+        ownerPart["text"].text?.removePrefix("by ")
+            ?: legacy["ownerText"].text
+            ?: sidebarOwner["title"].text
+    val ownerId =
+        browseIdOf(ownerPart)
+            ?: browseIdOf(legacy["ownerEndpoint"])
+            ?: browseIdOf(sidebarOwner["navigationEndpoint"])
+    val channel =
+        ownerName?.let {
+            ChannelRef(
+                id = ownerId,
+                name = it,
+                avatar =
+                    thumbnails(ownerPart.findFirst("avatarViewModel")["image"])
+                        .ifEmpty { thumbnails(sidebarOwner["thumbnail"]) },
+                handle = handleOf(ownerPart) ?: handleOf(legacy["ownerEndpoint"]),
+            )
+        }
+
+    val editable =
+        legacy["isEditable"].bool
+            ?: vm["actions"].findAll("iconName").any { it.str == "EDIT" || it.str == "DELETE" }
+
+    val playlist =
+        Playlist(
+            id =
+                legacy["playlistId"].str
+                    ?: response["microformat"]
+                        .findFirst("urlCanonical")
+                        .str
+                        ?.substringAfter("list=")
+                        ?.substringBefore('&')
+                    ?: playlistId,
+            title =
+                pageHeader["pageTitle"].str
+                    ?: legacy["title"].text
+                    ?: response["metadata"]["playlistMetadataRenderer"]["title"].str
+                    ?: "",
+            thumbnails =
+                thumbnails(vm["heroImage"].findFirst("image"))
+                    .ifEmpty { thumbnails(legacy["playlistHeaderBanner"].findFirst("thumbnail")) }
+                    .ifEmpty { thumbnails(sidebar["thumbnailRenderer"].findFirst("thumbnail")) },
+            channel = channel,
+            videoCountText =
+                parts.mapNotNull { it["text"].text }.firstOrNull { it.contains("video") }
+                    ?: legacy["numVideosText"].text
+                    ?: sidebar["stats"][0].text,
+            description =
+                vm["description"].findFirst("description").text
+                    ?: legacy["descriptionText"].text
+                    ?: response["metadata"]["playlistMetadataRenderer"]["description"].str,
         )
-    }
-
-    val editable = legacy["isEditable"].bool
-        ?: vm["actions"].findAll("iconName").any { it.str == "EDIT" || it.str == "DELETE" }
-
-    val playlist = Playlist(
-        id = legacy["playlistId"].str
-            ?: response["microformat"].findFirst("urlCanonical").str
-                ?.substringAfter("list=")?.substringBefore('&')
-            ?: playlistId,
-        title = pageHeader["pageTitle"].str
-            ?: legacy["title"].text
-            ?: response["metadata"]["playlistMetadataRenderer"]["title"].str
-            ?: "",
-        thumbnails = thumbnails(vm["heroImage"].findFirst("image"))
-            .ifEmpty { thumbnails(legacy["playlistHeaderBanner"].findFirst("thumbnail")) }
-            .ifEmpty { thumbnails(sidebar["thumbnailRenderer"].findFirst("thumbnail")) },
-        channel = channel,
-        videoCountText = parts.mapNotNull { it["text"].text }.firstOrNull { it.contains("video") }
-            ?: legacy["numVideosText"].text
-            ?: sidebar["stats"][0].text,
-        description = vm["description"].findFirst("description").text
-            ?: legacy["descriptionText"].text
-            ?: response["metadata"]["playlistMetadataRenderer"]["description"].str,
-    )
     return playlist to editable
 }
 
-internal fun parseVideoDetails(response: JsonElement, videoId: String): VideoDetails {
+internal fun parseVideoDetails(
+    response: JsonElement,
+    videoId: String,
+): VideoDetails {
     val twoColumn = response["contents"]["twoColumnWatchNextResults"]
     val results = twoColumn["results"]["results"]["contents"].list
-    val primary = results.firstNotNullOfOrNull { it["videoPrimaryInfoRenderer"] }
-        ?: response.findFirst("videoPrimaryInfoRenderer")
-    val secondary = results.firstNotNullOfOrNull { it["videoSecondaryInfoRenderer"] }
-        ?: response.findFirst("videoSecondaryInfoRenderer")
+    val primary =
+        results.firstNotNullOfOrNull { it["videoPrimaryInfoRenderer"] }
+            ?: response.findFirst("videoPrimaryInfoRenderer")
+    val secondary =
+        results.firstNotNullOfOrNull { it["videoSecondaryInfoRenderer"] }
+            ?: response.findFirst("videoSecondaryInfoRenderer")
     val owner = secondary["owner"]["videoOwnerRenderer"]
 
-    val collaborators = owner["navigationEndpoint"].findAll("listItemViewModel").mapNotNull { vm ->
-        val id = browseIdOf(vm) ?: return@mapNotNull null
-        val name = vm["title"].text ?: return@mapNotNull null
-        val subtitle = vm["subtitle"].text
-            ?.let { BIDI_MARKS.replace(it, "") }
-            ?.split('•')
-            ?.map { it.trim() }
-        ChannelRef(
-            id = id,
-            name = name,
-            avatar = thumbnails(vm["leadingAccessory"].findFirst("avatarViewModel")["image"]),
-            verified = vm["title"]["attachmentRuns"].findAll("imageName")
-                .any { it.str?.contains("CHECK_CIRCLE") == true },
-            handle = subtitle?.firstOrNull()?.takeIf { it.startsWith("@") },
-            subscriberCountText = subtitle?.getOrNull(1),
-        )
-    }.distinctBy { it.id }
+    val collaborators =
+        owner["navigationEndpoint"]
+            .findAll("listItemViewModel")
+            .mapNotNull { vm ->
+                val id = browseIdOf(vm) ?: return@mapNotNull null
+                val name = vm["title"].text ?: return@mapNotNull null
+                val subtitle =
+                    vm["subtitle"]
+                        .text
+                        ?.let { BIDI_MARKS.replace(it, "") }
+                        ?.split('•')
+                        ?.map { it.trim() }
+                ChannelRef(
+                    id = id,
+                    name = name,
+                    avatar = thumbnails(vm["leadingAccessory"].findFirst("avatarViewModel")["image"]),
+                    verified =
+                        vm["title"]["attachmentRuns"]
+                            .findAll("imageName")
+                            .any { it.str?.contains("CHECK_CIRCLE") == true },
+                    handle = subtitle?.firstOrNull()?.takeIf { it.startsWith("@") },
+                    subscriberCountText = subtitle?.getOrNull(1),
+                )
+            }.distinctBy { it.id }
 
     val ownerId = browseIdOf(owner["navigationEndpoint"]) ?: browseIdOf(owner["title"])
-    val channel = collaborators.firstOrNull() ?: ChannelRef(
-        id = ownerId,
-        name = owner["title"].text ?: "",
-        avatar = thumbnails(owner["thumbnail"]),
-        verified = verifiedBadge(owner["badges"]),
-        handle = handleOf(owner["navigationEndpoint"]),
-        subscriberCountText = owner["subscriberCountText"].text,
-    )
+    val channel =
+        collaborators.firstOrNull() ?: ChannelRef(
+            id = ownerId,
+            name = owner["title"].text ?: "",
+            avatar = thumbnails(owner["thumbnail"]),
+            verified = verifiedBadge(owner["badges"]),
+            handle = handleOf(owner["navigationEndpoint"]),
+            subscriberCountText = owner["subscriberCountText"].text,
+        )
 
-    val likeToggle = primary.findFirst("likeButtonViewModel")["likeButtonViewModel"]["toggleButtonViewModel"]["toggleButtonViewModel"]
-        ?: primary.findFirst("likeButtonViewModel")["toggleButtonViewModel"]["toggleButtonViewModel"]
+    val likeToggle =
+        primary.findFirst("likeButtonViewModel")["likeButtonViewModel"]["toggleButtonViewModel"]["toggleButtonViewModel"]
+            ?: primary.findFirst("likeButtonViewModel")["toggleButtonViewModel"]["toggleButtonViewModel"]
     val likeButton = likeToggle["defaultButtonViewModel"]["buttonViewModel"]
     val likeCountText = likeButton["title"].str
-    val likeCount = likeButton["accessibilityText"].str
-        ?.let { Regex("([\\d,]+) other people").find(it)?.groupValues?.get(1) }
-        ?.let { parseCount(it) }
-        ?: likeCountText?.let { parseCount(it) }
-    val disliked = primary.findFirst("dislikeButtonViewModel")
-        .findFirst("toggleButtonViewModel")["isToggled"].bool == true
-    val likeStatus = when {
-        likeToggle["isToggled"].bool == true -> LikeStatus.LIKE
-        disliked -> LikeStatus.DISLIKE
-        likeToggle != null -> LikeStatus.INDIFFERENT
-        else -> null
-    }
+    val likeCount =
+        likeButton["accessibilityText"]
+            .str
+            ?.let { Regex("([\\d,]+) other people").find(it)?.groupValues?.get(1) }
+            ?.let { parseCount(it) }
+            ?: likeCountText?.let { parseCount(it) }
+    val disliked =
+        primary
+            .findFirst("dislikeButtonViewModel")
+            .findFirst("toggleButtonViewModel")["isToggled"]
+            .bool == true
+    val likeStatus =
+        when {
+            likeToggle["isToggled"].bool == true -> LikeStatus.LIKE
+            disliked -> LikeStatus.DISLIKE
+            likeToggle != null -> LikeStatus.INDIFFERENT
+            else -> null
+        }
 
     val viewCount = primary["viewCount"]["videoViewCountRenderer"]
     val dateText = primary["dateText"].text ?: primary["relativeDateText"].text
-    val description = secondary["attributedDescription"]["content"].str
-        ?: secondary["description"].text
-        ?: ""
+    val description =
+        secondary["attributedDescription"]["content"].str
+            ?: secondary["description"].text
+            ?: ""
     val descriptionLinks = parseTextLinks(secondary["attributedDescription"]["commandRuns"])
 
-    val chapters = response["playerOverlays"].findAll("chapterRenderer").map {
-        Chapter(
-            title = it["title"].text ?: "",
-            startSeconds = (it["timeRangeStartMillis"].long ?: 0L) / 1000,
-            thumbnails = thumbnails(it["thumbnail"]),
-        )
-    }.ifEmpty {
-        response["engagementPanels"].findAll("macroMarkersListItemRenderer").mapNotNull {
-            val start = durationSeconds(it["timeDescription"].text) ?: return@mapNotNull null
-            Chapter(
-                title = it["title"].text ?: "",
-                startSeconds = start,
-                thumbnails = thumbnails(it["thumbnail"]),
-            )
-        }
-    }
+    val chapters =
+        response["playerOverlays"]
+            .findAll("chapterRenderer")
+            .map {
+                Chapter(
+                    title = it["title"].text ?: "",
+                    startSeconds = (it["timeRangeStartMillis"].long ?: 0L) / 1000,
+                    thumbnails = thumbnails(it["thumbnail"]),
+                )
+            }.ifEmpty {
+                response["engagementPanels"].findAll("macroMarkersListItemRenderer").mapNotNull {
+                    val start = durationSeconds(it["timeDescription"].text) ?: return@mapNotNull null
+                    Chapter(
+                        title = it["title"].text ?: "",
+                        startSeconds = start,
+                        thumbnails = thumbnails(it["thumbnail"]),
+                    )
+                }
+            }
 
-    val commentsPanel = response["engagementPanels"].list.firstOrNull {
-        it["engagementPanelSectionListRenderer"]["panelIdentifier"].str == "engagement-panel-comments-section"
-    }["engagementPanelSectionListRenderer"]
-    val commentsContinuation = commentsPanel["content"]?.let { continuationToken(it) }
-        ?: results.firstOrNull {
-            it["itemSectionRenderer"]["sectionIdentifier"].str == "comment-item-section"
-        }?.let { continuationToken(it) }
-    val commentCountText = commentsPanel["header"]["engagementPanelTitleHeaderRenderer"]["contextualInfo"].text
-        ?: results.firstNotNullOfOrNull { section ->
-            section["itemSectionRenderer"]["header"]["commentsHeaderRenderer"]["countText"].text
-                ?.takeIf { text -> text.any { it.isDigit() } }
-        }
+    val commentsPanel =
+        response["engagementPanels"].list.firstOrNull {
+            it["engagementPanelSectionListRenderer"]["panelIdentifier"].str == "engagement-panel-comments-section"
+        }["engagementPanelSectionListRenderer"]
+    val commentsContinuation =
+        commentsPanel["content"]?.let { continuationToken(it) }
+            ?: results
+                .firstOrNull {
+                    it["itemSectionRenderer"]["sectionIdentifier"].str == "comment-item-section"
+                }?.let { continuationToken(it) }
+    val commentCountText =
+        commentsPanel["header"]["engagementPanelTitleHeaderRenderer"]["contextualInfo"].text
+            ?: results.firstNotNullOfOrNull { section ->
+                section["itemSectionRenderer"]["header"]["commentsHeaderRenderer"]["countText"]
+                    .text
+                    ?.takeIf { text -> text.any { it.isDigit() } }
+            }
 
     val relatedElements = twoColumn["secondaryResults"]["secondaryResults"]["results"].list
-    val related = Page(
-        parseItems(relatedElements),
-        relatedElements.firstNotNullOfOrNull { continuationToken(it) },
-    )
-
-    val categoryRow = secondary["metadataRowContainer"].findAll("metadataRowRenderer")
-        .firstOrNull { it["title"].text == "Category" }
-
-    val playlistPanel = twoColumn["playlist"]["playlist"]?.let { pl ->
-        PlaylistPanel(
-            playlistId = pl["playlistId"].str ?: "",
-            title = pl["title"].str ?: pl["titleText"].text,
-            currentIndex = pl["currentIndex"].int ?: pl["localCurrentIndex"].int ?: 0,
-            videos = pl["contents"].list.mapNotNull { parseItem(it) as? Video },
-            continuation = continuationToken(pl["contents"])
-                ?: pl["continuations"].findFirst("continuation").str,
+    val related =
+        Page(
+            parseItems(relatedElements),
+            relatedElements.firstNotNullOfOrNull { continuationToken(it) },
         )
-    }
 
-    val inWatchLater = secondary.findAll("playlistEditEndpoint")
-        .firstOrNull { it["playlistId"].str == "WL" }
-        ?.let { it["actions"][0]["action"].str == "ACTION_REMOVE_VIDEO_BY_VIDEO_ID" }
+    val categoryRow =
+        secondary["metadataRowContainer"]
+            .findAll("metadataRowRenderer")
+            .firstOrNull { it["title"].text == "Category" }
+
+    val playlistPanel =
+        twoColumn["playlist"]["playlist"]?.let { pl ->
+            PlaylistPanel(
+                playlistId = pl["playlistId"].str ?: "",
+                title = pl["title"].str ?: pl["titleText"].text,
+                currentIndex = pl["currentIndex"].int ?: pl["localCurrentIndex"].int ?: 0,
+                videos = pl["contents"].list.mapNotNull { parseItem(it) as? Video },
+                continuation =
+                    continuationToken(pl["contents"])
+                        ?: pl["continuations"].findFirst("continuation").str,
+            )
+        }
+
+    val inWatchLater =
+        secondary
+            .findAll("playlistEditEndpoint")
+            .firstOrNull { it["playlistId"].str == "WL" }
+            ?.let { it["actions"][0]["action"].str == "ACTION_REMOVE_VIDEO_BY_VIDEO_ID" }
 
     return VideoDetails(
         id = videoId,
@@ -779,15 +951,17 @@ internal fun parseVideoDetails(response: JsonElement, videoId: String): VideoDet
         publishedText = dateText,
         lengthSeconds = null,
         isLive = viewCount["isLive"].bool == true,
-        isUpcoming = primary["upcomingEventData"] != null ||
-            dateText?.startsWith("Premieres") == true ||
-            dateText?.startsWith("Scheduled") == true,
+        isUpcoming =
+            primary["upcomingEventData"] != null ||
+                dateText?.startsWith("Premieres") == true ||
+                dateText?.startsWith("Scheduled") == true,
         keywords = emptyList(),
         category = categoryRow["contents"][0].text,
         chapters = chapters,
         likeStatus = likeStatus,
-        subscribed = secondary["subscribeButton"]["subscribeButtonRenderer"]["subscribed"].bool
-            ?: secondary.findFirst("subscribeButtonViewModel")["subscribed"].bool,
+        subscribed =
+            secondary["subscribeButton"]["subscribeButtonRenderer"]["subscribed"].bool
+                ?: secondary.findFirst("subscribeButtonViewModel")["subscribed"].bool,
         commentCountText = commentCountText,
         commentsContinuation = commentsContinuation,
         related = related,
@@ -798,32 +972,49 @@ internal fun parseVideoDetails(response: JsonElement, videoId: String): VideoDet
     )
 }
 
-internal fun parseTextLinks(runs: JsonElement?): List<TextLink> = runs.list.mapNotNull { run ->
-    val start = run["startIndex"].int ?: return@mapNotNull null
-    val length = run["length"].int ?: return@mapNotNull null
-    val command = run["onTap"]["innertubeCommand"]
-    val videoId = command["watchEndpoint"]["videoId"].str
-    val browseId = command["browseEndpoint"]["browseId"].str
-    val url = command["urlEndpoint"]["url"].str
-    val target: LinkTarget = when {
-        videoId != null -> LinkTarget.Video(videoId, command["watchEndpoint"]["startTimeSeconds"].long)
-        browseId != null && browseId.startsWith("UC") -> LinkTarget.Channel(browseId)
-        browseId != null -> {
-            val path = command["browseEndpoint"]["canonicalBaseUrl"].str ?: return@mapNotNull null
-            LinkTarget.Url("https://www.youtube.com$path")
-        }
-        url != null -> LinkTarget.Url(unwrapRedirect(url))
-        else -> return@mapNotNull null
+internal fun parseTextLinks(runs: JsonElement?): List<TextLink> =
+    runs.list.mapNotNull { run ->
+        val start = run["startIndex"].int ?: return@mapNotNull null
+        val length = run["length"].int ?: return@mapNotNull null
+        val command = run["onTap"]["innertubeCommand"]
+        val videoId = command["watchEndpoint"]["videoId"].str
+        val browseId = command["browseEndpoint"]["browseId"].str
+        val url = command["urlEndpoint"]["url"].str
+        val target: LinkTarget =
+            when {
+                videoId != null -> {
+                    LinkTarget.Video(videoId, command["watchEndpoint"]["startTimeSeconds"].long)
+                }
+
+                browseId != null && browseId.startsWith("UC") -> {
+                    LinkTarget.Channel(browseId)
+                }
+
+                browseId != null -> {
+                    val path = command["browseEndpoint"]["canonicalBaseUrl"].str ?: return@mapNotNull null
+                    LinkTarget.Url("https://www.youtube.com$path")
+                }
+
+                url != null -> {
+                    LinkTarget.Url(unwrapRedirect(url))
+                }
+
+                else -> {
+                    return@mapNotNull null
+                }
+            }
+        TextLink(start, start + length, target)
     }
-    TextLink(start, start + length, target)
-}
 
 internal fun unwrapRedirect(url: String): String {
     if (!url.contains("youtube.com/redirect")) return url
-    val target = url.substringAfter('?', "").split('&')
-        .firstOrNull { it.startsWith("q=") }
-        ?.substring(2)
-        ?: return url
+    val target =
+        url
+            .substringAfter('?', "")
+            .split('&')
+            .firstOrNull { it.startsWith("q=") }
+            ?.substring(2)
+            ?: return url
     return runCatching { URLDecoder.decode(target, "UTF-8") }.getOrDefault(url)
 }
 
@@ -842,25 +1033,37 @@ internal fun parseComments(response: JsonElement): Page<Comment> {
             "commentThreadRenderer" -> {
                 val thread = item[name]
                 val vm = thread["commentViewModel"]["commentViewModel"]
-                val replies = thread["replies"]["commentRepliesRenderer"]
-                    ?.let { continuationToken(it["contents"]) }
-                val comment = vm?.let { commentFromEntities(it, entities) }
-                    ?: thread["comment"]["commentRenderer"]?.let { legacyComment(it) }
-                    ?: continue
+                val replies =
+                    thread["replies"]["commentRepliesRenderer"]
+                        ?.let { continuationToken(it["contents"]) }
+                val comment =
+                    vm?.let { commentFromEntities(it, entities) }
+                        ?: thread["comment"]["commentRenderer"]?.let { legacyComment(it) }
+                        ?: continue
                 comments += comment.copy(repliesContinuation = replies ?: comment.repliesContinuation)
             }
+
             "commentViewModel" -> {
                 val vm = item[name]["commentViewModel"] ?: item[name] ?: continue
                 commentFromEntities(vm, entities)?.let { comments += it }
             }
-            "commentRenderer" -> legacyComment(item[name])?.let { comments += it }
-            "continuationItemRenderer" -> continuation = continuationToken(item)
+
+            "commentRenderer" -> {
+                legacyComment(item[name])?.let { comments += it }
+            }
+
+            "continuationItemRenderer" -> {
+                continuation = continuationToken(item)
+            }
         }
     }
     return Page(comments, continuation)
 }
 
-private fun commentFromEntities(vm: JsonElement, entities: Map<String, JsonElement>): Comment? {
+private fun commentFromEntities(
+    vm: JsonElement,
+    entities: Map<String, JsonElement>,
+): Comment? {
     val key = vm["commentKey"].str ?: return null
     val payload = entities[key]["commentEntityPayload"] ?: return null
     val properties = payload["properties"]
@@ -870,16 +1073,18 @@ private fun commentFromEntities(vm: JsonElement, entities: Map<String, JsonEleme
     val authorName = author["displayName"].str ?: ""
     return Comment(
         id = properties["commentId"].str ?: vm["commentId"].str ?: return null,
-        author = ChannelRef(
-            id = author["channelId"].str,
-            name = authorName,
-            avatar = author["avatarThumbnailUrl"].str?.let { listOf(Thumbnail(it)) } ?: emptyList(),
-            verified = author["isVerified"].bool == true,
-            handle = authorName.takeIf { it.startsWith("@") },
-        ),
+        author =
+            ChannelRef(
+                id = author["channelId"].str,
+                name = authorName,
+                avatar = author["avatarThumbnailUrl"].str?.let { listOf(Thumbnail(it)) } ?: emptyList(),
+                verified = author["isVerified"].bool == true,
+                handle = authorName.takeIf { it.startsWith("@") },
+            ),
         text = properties["content"]["content"].str ?: "",
-        likeCountText = toolbar["likeCountNotliked"].str?.takeIf { it.isNotBlank() }
-            ?: toolbar["likeCountLiked"].str,
+        likeCountText =
+            toolbar["likeCountNotliked"].str?.takeIf { it.isNotBlank() }
+                ?: toolbar["likeCountLiked"].str,
         publishedText = properties["publishedTime"].str,
         replyCount = parseCount(toolbar["replyCount"].str)?.toInt() ?: 0,
         repliesContinuation = null,
@@ -894,13 +1099,14 @@ private fun legacyComment(r: JsonElement?): Comment? {
     val authorName = r["authorText"].text ?: ""
     return Comment(
         id = id,
-        author = ChannelRef(
-            id = browseIdOf(r["authorEndpoint"]),
-            name = authorName,
-            avatar = thumbnails(r["authorThumbnail"]),
-            verified = r["authorCommentBadge"] != null,
-            handle = authorName.takeIf { it.startsWith("@") },
-        ),
+        author =
+            ChannelRef(
+                id = browseIdOf(r["authorEndpoint"]),
+                name = authorName,
+                avatar = thumbnails(r["authorThumbnail"]),
+                verified = r["authorCommentBadge"] != null,
+                handle = authorName.takeIf { it.startsWith("@") },
+            ),
         text = r["contentText"].text ?: "",
         likeCountText = r["voteCount"].text,
         publishedText = r["publishedTimeText"].text,
@@ -912,49 +1118,61 @@ private fun legacyComment(r: JsonElement?): Comment? {
     )
 }
 
-internal fun parsePlayer(response: JsonElement, videoId: String, clientName: String): PlayerResponse {
+internal fun parsePlayer(
+    response: JsonElement,
+    videoId: String,
+    clientName: String,
+): PlayerResponse {
     val playability = response["playabilityStatus"]
     val streaming = response["streamingData"]
     val details = response["videoDetails"]
-    val tracking = response["playbackTracking"]?.let {
-        PlaybackTracking(
-            videostatsPlaybackUrl = it["videostatsPlaybackUrl"]["baseUrl"].str,
-            videostatsWatchtimeUrl = it["videostatsWatchtimeUrl"]["baseUrl"].str,
-            ptrackingUrl = it["ptrackingUrl"]["baseUrl"].str,
-            qoeUrl = it["qoeUrl"]["baseUrl"].str,
-            atrUrl = it["atrUrl"]["baseUrl"].str,
-        )
-    }
-    val captions = response["captions"]["playerCaptionsTracklistRenderer"]["captionTracks"].list
-        .mapNotNull { track ->
-            val baseUrl = track["baseUrl"].str
-                ?.let { if (it.startsWith("/")) "https://www.youtube.com$it" else it }
-                ?: return@mapNotNull null
-            CaptionTrack(
-                baseUrl = baseUrl,
-                languageCode = track["languageCode"].str ?: "",
-                name = track["name"].text ?: track["languageCode"].str ?: "",
-                kind = track["kind"].str,
-                isTranslatable = track["isTranslatable"].bool == true,
-                vssId = track["vssId"].str,
+    val tracking =
+        response["playbackTracking"]?.let {
+            PlaybackTracking(
+                videostatsPlaybackUrl = it["videostatsPlaybackUrl"]["baseUrl"].str,
+                videostatsWatchtimeUrl = it["videostatsWatchtimeUrl"]["baseUrl"].str,
+                ptrackingUrl = it["ptrackingUrl"]["baseUrl"].str,
+                qoeUrl = it["qoeUrl"]["baseUrl"].str,
+                atrUrl = it["atrUrl"]["baseUrl"].str,
             )
         }
+    val captions =
+        response["captions"]["playerCaptionsTracklistRenderer"]["captionTracks"]
+            .list
+            .mapNotNull { track ->
+                val baseUrl =
+                    track["baseUrl"]
+                        .str
+                        ?.let { if (it.startsWith("/")) "https://www.youtube.com$it" else it }
+                        ?: return@mapNotNull null
+                CaptionTrack(
+                    baseUrl = baseUrl,
+                    languageCode = track["languageCode"].str ?: "",
+                    name = track["name"].text ?: track["languageCode"].str ?: "",
+                    kind = track["kind"].str,
+                    isTranslatable = track["isTranslatable"].bool == true,
+                    vssId = track["vssId"].str,
+                )
+            }
     return PlayerResponse(
         videoId = details["videoId"].str ?: videoId,
-        playability = Playability(
-            status = playability["status"].str ?: "UNKNOWN",
-            reason = playability["reason"].str ?: playability["errorScreen"].findFirst("reason").text,
-        ),
+        playability =
+            Playability(
+                status = playability["status"].str ?: "UNKNOWN",
+                reason = playability["reason"].str ?: playability["errorScreen"].findFirst("reason").text,
+            ),
         formats = streaming["formats"].list.mapNotNull { parseFormat(it) },
         adaptiveFormats = streaming["adaptiveFormats"].list.mapNotNull { parseFormat(it) },
         hlsManifestUrl = streaming["hlsManifestUrl"].str,
         dashManifestUrl = streaming["dashManifestUrl"].str,
         captions = captions,
-        storyboardSpec = response["storyboards"]["playerStoryboardSpecRenderer"]["spec"].str
-            ?: response["storyboards"]["playerLiveStoryboardSpecRenderer"]["spec"].str,
+        storyboardSpec =
+            response["storyboards"]["playerStoryboardSpecRenderer"]["spec"].str
+                ?: response["storyboards"]["playerLiveStoryboardSpecRenderer"]["spec"].str,
         lengthSeconds = details["lengthSeconds"].long,
-        isLive = details["isLive"].bool == true ||
-            (details["isLiveContent"].bool == true && streaming["hlsManifestUrl"] != null),
+        isLive =
+            details["isLive"].bool == true ||
+                (details["isLiveContent"].bool == true && streaming["hlsManifestUrl"] != null),
         title = details["title"].str,
         channelId = details["channelId"].str,
         author = details["author"].str,
@@ -980,14 +1198,15 @@ private fun parseFormat(f: JsonElement): StreamFormat? {
         return ByteRange(start, end)
     }
 
-    val audioTrack = f["audioTrack"]?.let {
-        AudioTrack(
-            id = it["id"].str,
-            displayName = it["displayName"].str,
-            languageCode = it["id"].str?.substringBefore('.'),
-            isDefault = it["audioIsDefault"].bool == true,
-        )
-    }
+    val audioTrack =
+        f["audioTrack"]?.let {
+            AudioTrack(
+                id = it["id"].str,
+                displayName = it["displayName"].str,
+                languageCode = it["id"].str?.substringBefore('.'),
+                isDefault = it["audioIsDefault"].bool == true,
+            )
+        }
     return StreamFormat(
         itag = itag,
         url = f["url"].str,
@@ -1019,15 +1238,17 @@ internal fun parseGuideSubscriptions(response: JsonElement?): List<Subscription>
     fun entry(e: JsonElement?) {
         val r = e["guideEntryRenderer"] ?: return
         val id = browseIdOf(r["navigationEndpoint"])?.takeIf { it.startsWith("UC") } ?: return
-        out += Subscription(
-            channel = ChannelRef(
-                id = id,
-                name = r["formattedTitle"].text ?: "",
-                avatar = thumbnails(r["thumbnail"]),
-                handle = handleOf(r["navigationEndpoint"]),
-            ),
-            hasNewContent = r["presentationStyle"].str == "GUIDE_ENTRY_PRESENTATION_STYLE_NEW_CONTENT",
-        )
+        out +=
+            Subscription(
+                channel =
+                    ChannelRef(
+                        id = id,
+                        name = r["formattedTitle"].text ?: "",
+                        avatar = thumbnails(r["thumbnail"]),
+                        handle = handleOf(r["navigationEndpoint"]),
+                    ),
+                hasNewContent = r["presentationStyle"].str == "GUIDE_ENTRY_PRESENTATION_STYLE_NEW_CONTENT",
+            )
     }
 
     for (section in response["items"].list) {
@@ -1050,21 +1271,30 @@ internal fun parseAccountIdentities(response: JsonElement?): List<AccountIdentit
         for (item in section.findAll("accountItem")) {
             val name = item["accountName"].text ?: continue
             val tokens = item["serviceEndpoint"]["selectActiveIdentityEndpoint"]["supportedTokens"].list
-            val pageId = item["onBehalfOfParameter"].str
-                ?: tokens.firstNotNullOfOrNull { it["pageIdToken"]["pageId"].str }
+            val pageId =
+                item["onBehalfOfParameter"].str
+                    ?: tokens.firstNotNullOfOrNull { it["pageIdToken"]["pageId"].str }
             val signinUrl = tokens.firstNotNullOfOrNull { it["accountSigninToken"]["signinUrl"].str }
             val byline = item["accountByline"].text
-            out += AccountIdentity(
-                name = name,
-                email = email ?: byline?.takeIf { it.contains('@') && !it.startsWith("@") },
-                handle = item["channelHandle"].text,
-                avatar = thumbnails(item["accountPhoto"]),
-                pageId = pageId,
-                authUser = signinUrl
-                    ?.let { AUTH_USER_PARAM.find(it)?.groupValues?.get(1)?.toIntOrNull() }
-                    ?: 0,
-                selected = item["isSelected"].bool == true,
-            )
+            out +=
+                AccountIdentity(
+                    name = name,
+                    email = email ?: byline?.takeIf { it.contains('@') && !it.startsWith("@") },
+                    handle = item["channelHandle"].text,
+                    avatar = thumbnails(item["accountPhoto"]),
+                    pageId = pageId,
+                    authUser =
+                        signinUrl
+                            ?.let {
+                                AUTH_USER_PARAM
+                                    .find(it)
+                                    ?.groupValues
+                                    ?.get(1)
+                                    ?.toIntOrNull()
+                            }
+                            ?: 0,
+                    selected = item["isSelected"].bool == true,
+                )
         }
     }
     return out.distinctBy { it.pageId to it.authUser }
@@ -1072,8 +1302,11 @@ internal fun parseAccountIdentities(response: JsonElement?): List<AccountIdentit
 
 internal fun parseAccountInfo(response: JsonElement?): AccountInfo? {
     val header = response.findFirst("activeAccountHeaderRenderer") ?: return null
-    val channelId = response.findFirst("multiPageMenuRenderer").findAll("browseEndpoint")
-        .firstNotNullOfOrNull { e -> e["browseId"].str?.takeIf { it.startsWith("UC") } }
+    val channelId =
+        response
+            .findFirst("multiPageMenuRenderer")
+            .findAll("browseEndpoint")
+            .firstNotNullOfOrNull { e -> e["browseId"].str?.takeIf { it.startsWith("UC") } }
     return AccountInfo(
         name = header["accountName"].text ?: "",
         email = header["email"].text,
