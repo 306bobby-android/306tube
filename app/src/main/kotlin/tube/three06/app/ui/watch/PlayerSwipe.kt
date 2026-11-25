@@ -51,6 +51,7 @@ import tube.three06.player.PlayerController
 enum class SwipeKind { BRIGHTNESS, VOLUME, SEEK }
 
 private val SWIPE_TOP_DEAD_ZONE = 48.dp
+private val SWIPE_SIDE_DEAD_ZONE = 48.dp
 
 data class SwipeIndicator(
     val kind: SwipeKind,
@@ -80,15 +81,25 @@ class PlayerSwipe(
     private var startValue = 0f
     private var travel = 0f
     private var seekTarget = 0L
+    private var fromSide = false
+    private var rejected = false
 
-    fun begin() {
+    fun begin(fromSide: Boolean = false) {
+        this.fromSide = fromSide
+        rejected = false
         kind = null
         travel = 0f
         dragging = true
     }
 
     fun drag(position: Offset, amount: Offset, size: IntSize): Boolean {
+        if (rejected) return false
         if (kind == null) {
+            // A sideways drag from a side edge is the back gesture or the navigation bar being pulled in.
+            if (fromSide && abs(amount.x) > abs(amount.y)) {
+                rejected = true
+                return false
+            }
             kind = choose(position, amount, size) ?: return false
             if (settings.swipeHaptics) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         }
@@ -224,11 +235,12 @@ fun Modifier.playerSwipe(swipe: PlayerSwipe, enabled: Boolean): Modifier =
         if (!enabled) return@pointerInput
         // A drag starting at the top edge is the user pulling down the status bar.
         val deadZone = SWIPE_TOP_DEAD_ZONE.toPx()
+        val sideZone = SWIPE_SIDE_DEAD_ZONE.toPx()
         var ignored = false
         detectDragGestures(
             onDragStart = { start ->
                 ignored = start.y < deadZone
-                if (!ignored) swipe.begin()
+                if (!ignored) swipe.begin(fromSide = start.x < sideZone || start.x > size.width - sideZone)
             },
             onDragEnd = { if (!ignored) swipe.end() },
             onDragCancel = { if (!ignored) swipe.end() },
