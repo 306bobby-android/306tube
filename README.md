@@ -1,6 +1,6 @@
 # 306Tube
 
-A YouTube client for Android. No ads, no Google Play Services, works signed out.
+A YouTube client for Android. Ad-free, with local algorithms and sign in capabilities
 
 Status: Daily-drivable, maintained
 
@@ -31,13 +31,13 @@ Status: Daily-drivable, maintained
 - DeArrow titles and thumbnails
 - Return YouTube Dislike
 - Cast to a TV on your network, or link one with a TV code
-- On Android TV, 306Tube is also a cast target: it shows up in the cast list of YouTube and 306Tube on phones, and has its own TV code under Settings → Cast.
+- On Android TV, cast to 306Tube as well
 
 ## Signing in
 
-Optional. Signing in gets you your real Home feed, subscriptions, Watch later, liked videos and playlists. Multiple accounts and brands are supported.
+**Optional.** Signing in gets you your real Home feed, subscriptions, Watch later, liked videos and playlists. Multi-account support included
 
-The app keeps your login cookies, encrypted with a key in the Android Keystore. Your password never touches the app.
+The app keeps your login cookies, encrypted with a key in the Android Keystore. Your password never touches the app or any other servers
 
 Watch history sync to YouTube is on by default once you're signed in. Kill it in Settings → Privacy if you don't want that.
 
