@@ -2,7 +2,7 @@
 
 Newest first. The release workflow copies the section matching the tag into the GitHub release, so heading has to be exact tag: `## 1.0.0`.
 
-## Unreleased
+## 1.1.0
 
 - Android TV Support
 - TV layout with typical controller controls
@@ -19,7 +19,7 @@ Newest first. The release workflow copies the section matching the tag into the 
 - Cast: phone shows the TV queue instead of a remote pad
 - Download notification shows speed and has Pause and Cancel
 - Fixed subscribed channels showing Subscribe
-- Tablets, desktops and unfolded foldables get a grid layout, and a player page with comments under the video and recommendations beside it
+- Tablets, desktops and unfolded foldables get a grid layout, and a player page with comments under the video and recommendations beside it (WIP, lightly tested)
 - Closing picture-in-picture pauses the video
 - Side dead zones for swipe to seek, so the back gesture and navigation bar don't seek
 - Watch later: sort and filter by duration, remove watched videos (Super-Matter)
